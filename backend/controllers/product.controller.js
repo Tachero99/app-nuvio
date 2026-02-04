@@ -1,0 +1,229 @@
+// controllers/product.controller.js
+import prisma from "../prismaClient.js";
+import { Prisma } from "@prisma/client";
+
+async function assertCanAccessBusiness(req, businessId) {
+  const role = req.user?.role;
+  if (role === "SUPERADMIN") return;
+
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { ownerId: true },
+  });
+
+  if (!business) {
+    const err = new Error("BUSINESS_NOT_FOUND");
+    err.status = 404;
+    throw err;
+  }
+
+  if (business.ownerId !== req.user?.id) {
+    const err = new Error("FORBIDDEN");
+    err.status = 403;
+    throw err;
+  }
+}
+
+function toDecimal(val) {
+  if (val === null || val === undefined || val === "") return null;
+  // Prisma Decimal: aceptar string o Decimal.
+  // Si viene number, lo convertimos a string para evitar problemas de precisión.
+  if (typeof val === "number") return new Prisma.Decimal(String(val));
+  if (typeof val === "string") return new Prisma.Decimal(val);
+  return val; // por si ya viene Decimal
+}
+
+// POST /api/business/:businessId/products
+export async function createProduct(req, res) {
+  try {
+    const businessId = Number(req.params.businessId);
+    const {
+      name,
+      price,
+      cost,
+      description,
+      stock,
+      sortOrder,
+      status,
+      categoryId,
+      imageUrl,
+    } = req.body;
+
+    if (!businessId) return res.status(400).json({ message: "businessId inválido" });
+    if (!name) return res.status(400).json({ message: "El nombre es obligatorio" });
+    if (price === undefined || price === null || price === "") {
+      return res.status(400).json({ message: "El precio es obligatorio" });
+    }
+
+    await assertCanAccessBusiness(req, businessId);
+
+    const product = await prisma.product.create({
+      data: {
+        businessId,
+        name,
+        price: toDecimal(price),
+        cost: toDecimal(cost),
+        description: description ?? null,
+        stock: typeof stock === "number" ? stock : stock === null ? null : 0,
+        sortOrder: typeof sortOrder === "number" ? sortOrder : 0,
+        status: status ?? "ACTIVE",
+        categoryId: categoryId ? Number(categoryId) : null,
+        imageUrl: imageUrl ?? null,
+      },
+    });
+
+    return res.status(201).json({ product });
+  } catch (e) {
+    if (e?.status) {
+      if (e.message === "BUSINESS_NOT_FOUND") return res.status(404).json({ message: "Negocio no encontrado" });
+      if (e.message === "FORBIDDEN") return res.status(403).json({ message: "No tenés permisos sobre este negocio" });
+    }
+    console.error("createProduct:", e);
+    return res.status(500).json({ message: "Error creando producto" });
+  }
+}
+
+// GET /api/business/:businessId/products
+export async function listProducts(req, res) {
+  try {
+    const businessId = Number(req.params.businessId);
+    if (!businessId) return res.status(400).json({ message: "businessId inválido" });
+
+    await assertCanAccessBusiness(req, businessId);
+
+    const products = await prisma.product.findMany({
+      where: { businessId },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+
+    return res.json({ products });
+  } catch (e) {
+    if (e?.status) {
+      if (e.message === "BUSINESS_NOT_FOUND") return res.status(404).json({ message: "Negocio no encontrado" });
+      if (e.message === "FORBIDDEN") return res.status(403).json({ message: "No tenés permisos sobre este negocio" });
+    }
+    console.error("listProducts:", e);
+    return res.status(500).json({ message: "Error listando productos" });
+  }
+}
+
+// PATCH /api/products/:id
+export async function updateProduct(req, res) {
+  try {
+    const id = Number(req.params.id);
+    const {
+      name,
+      price,
+      cost,
+      description,
+      stock,
+      sortOrder,
+      status,
+      categoryId,
+      imageUrl,
+    } = req.body;
+
+    if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+
+    const existing = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true, businessId: true },
+    });
+    if (!existing) return res.status(404).json({ message: "Producto no encontrado" });
+
+    await assertCanAccessBusiness(req, existing.businessId);
+
+    const parsedCategoryId =
+      categoryId === undefined
+        ? undefined
+        : categoryId === null || categoryId === ""
+          ? null
+          : Number(categoryId);
+
+    if (parsedCategoryId !== undefined && parsedCategoryId !== null && Number.isNaN(parsedCategoryId)) {
+      return res.status(400).json({ message: "categoryId inválido" });
+    }
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: {
+        name: name === undefined ? undefined : (typeof name === "string" ? name.trim() : name),
+
+        price: price === undefined ? undefined : toDecimal(price),
+        cost: cost === undefined ? undefined : toDecimal(cost),
+
+        description: description === undefined ? undefined : (description ?? null),
+
+        stock:
+          stock === undefined
+            ? undefined
+            : (Number.isFinite(Number(stock)) ? Number(stock) : 0),
+
+        sortOrder:
+          sortOrder === undefined
+            ? undefined
+            : (Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : 0),
+
+        status: status === undefined ? undefined : status,
+
+        categoryId: parsedCategoryId,
+
+        imageUrl: imageUrl === undefined ? undefined : (String(imageUrl).trim() || null),
+      },
+    });
+
+    return res.json({ product });
+  } catch (e) {
+    if (e?.status) {
+      if (e.message === "BUSINESS_NOT_FOUND") return res.status(404).json({ message: "Negocio no encontrado" });
+      if (e.message === "FORBIDDEN") return res.status(403).json({ message: "No tenés permisos sobre este negocio" });
+    }
+    console.error("updateProduct:", e);
+    return res.status(500).json({ message: "Error actualizando producto" });
+  }
+}
+
+
+// DELETE /api/products/:id  -> HARD DELETE seguro
+export const deleteProduct = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const productId = Number(req.params.id);
+
+    if (Number.isNaN(productId)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { business: true },
+    });
+
+    if (!product || product.business.ownerId !== userId) {
+      return res
+        .status(404)
+        .json({ message: "Producto no encontrado o no te pertenece" });
+    }
+
+    const tx = [];
+
+    // ✅ si existe OrderItem en tu client, nullificamos referencias
+    if (prisma.orderItem?.updateMany) {
+      tx.push(
+        prisma.orderItem.updateMany({
+          where: { productId },
+          data: { productId: null },
+        })
+      );
+    }
+
+    tx.push(prisma.product.delete({ where: { id: productId } }));
+
+    await prisma.$transaction(tx);
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error("Error eliminando producto:", error);
+    return res.status(500).json({ message: "Error eliminando producto" });
+  }
+};

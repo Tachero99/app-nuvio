@@ -1,0 +1,121 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  SUPERADMIN
+  CLIENT_OWNER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id         Int        @id @default(autoincrement())
+  name       String
+  email      String     @unique
+  password   String
+  role       UserRole   @default(CLIENT_OWNER)
+  status     UserStatus @default(ACTIVE)
+  businesses Business[] @relation("OwnerBusinesses")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @default(now()) @updatedAt
+}
+
+model Business {
+  id      Int    @id @default(autoincrement())
+  ownerId Int    @unique
+  name    String
+  slug    String @unique
+
+  owner User @relation("OwnerBusinesses", fields: [ownerId], references: [id])
+
+  whatsapp  String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  categories Category[]
+  products   Product[]
+
+  orders Order[]
+}
+
+model Category {
+  id         Int      @id @default(autoincrement())
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId Int
+  name       String
+
+  imageUrl  String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id          Int           @id @default(autoincrement())
+  business    Business      @relation(fields: [businessId], references: [id])
+  businessId  Int
+  category    Category?     @relation(fields: [categoryId], references: [id])
+  categoryId  Int?
+  name        String
+  price       Decimal
+  cost        Decimal?
+  status      ProductStatus @default(ACTIVE)
+  description String?
+  stock       Int?          @default(0)
+  imageUrl    String?
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
+
+  orderItems OrderItem[]
+}
+
+enum OrderStatus {
+  NEW
+  DONE
+  CANCELLED
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  businessId Int
+  status     OrderStatus @default(NEW)
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  business Business    @relation(fields: [businessId], references: [id])
+  items    OrderItem[]
+}
+
+model OrderItem {
+  id            Int    @id @default(autoincrement())
+  orderId       Int
+  productId     Int?
+  nameSnapshot  String
+  priceSnapshot Int?
+  qty           Int    @default(1)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+}
