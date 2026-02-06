@@ -478,6 +478,12 @@ export default function DashboardPage() {
                 ABM Productos
               </Link>
 
+              <Link 
+                href="/dashboard/products/editor"
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                Editor Masivo
+              </Link>
+
               <Link
                 href="/dashboard/settings"
                 className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"

@@ -227,3 +227,139 @@ export const deleteProduct = async (req, res) => {
     return res.status(500).json({ message: "Error eliminando producto" });
   }
 };
+
+
+// ✨ GET /api/business/:businessId/products/bulk
+export async function listProductsBulk(req, res) {
+  try {
+    const businessId = Number(req.params.businessId);
+    if (!businessId) return res.status(400).json({ message: "businessId inválido" });
+
+    await assertCanAccessBusiness(req, businessId);
+
+    const {
+      categoryId,
+      search,
+      status,
+      sortBy = "sortOrder",
+      sortOrder = "asc",
+    } = req.query;
+
+    const where = { businessId };
+
+    if (categoryId) {
+      const catId = Number(categoryId);
+      if (!Number.isNaN(catId)) where.categoryId = catId;
+    }
+
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
+
+    if (status && (status === "ACTIVE" || status === "INACTIVE")) {
+      where.status = status;
+    }
+
+    const validSortFields = ["name", "price", "createdAt", "sortOrder", "stock"];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : "sortOrder";
+    const order = sortOrder === "desc" ? "desc" : "asc";
+
+    const products = await prisma.product.findMany({
+      where,
+      orderBy: { [sortField]: order },
+      include: {
+        category: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    const total = products.length;
+    const activeCount = products.filter((p) => p.status === "ACTIVE").length;
+    const inactiveCount = total - activeCount;
+
+    return res.json({
+      products,
+      meta: {
+        total,
+        active: activeCount,
+        inactive: inactiveCount,
+      },
+    });
+  } catch (e) {
+    if (e?.status) {
+      if (e.message === "BUSINESS_NOT_FOUND")
+        return res.status(404).json({ message: "Negocio no encontrado" });
+      if (e.message === "FORBIDDEN")
+        return res.status(403).json({ message: "No tenés permisos sobre este negocio" });
+    }
+    console.error("listProductsBulk:", e);
+    return res.status(500).json({ message: "Error listando productos" });
+  }
+}
+
+// ✨ PATCH /api/products/bulk
+export async function updateProductsBulk(req, res) {
+  try {
+    const { updates } = req.body;
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ message: "updates debe ser un array no vacío" });
+    }
+
+    const productIds = updates.map((u) => u.id);
+
+    const existingProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, businessId: true },
+    });
+
+    if (existingProducts.length !== productIds.length) {
+      return res.status(404).json({ message: "Uno o más productos no existen" });
+    }
+
+    const businessIds = [...new Set(existingProducts.map((p) => p.businessId))];
+    for (const businessId of businessIds) {
+      await assertCanAccessBusiness(req, businessId);
+    }
+
+    const updatePromises = updates.map((update) => {
+      const { id, ...data } = update;
+
+      const processedData = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (key === "price" || key === "cost") {
+          processedData[key] = value !== undefined ? toDecimal(value) : undefined;
+        } else if (key === "categoryId" && value === "") {
+          processedData[key] = null;
+        } else {
+          processedData[key] = value;
+        }
+      }
+
+      return prisma.product.update({
+        where: { id },
+        data: processedData,
+      });
+    });
+
+    const updatedProducts = await prisma.$transaction(updatePromises);
+
+    return res.json({
+      message: `${updatedProducts.length} productos actualizados exitosamente`,
+      products: updatedProducts,
+    });
+  } catch (e) {
+    if (e?.status) {
+      if (e.message === "BUSINESS_NOT_FOUND")
+        return res.status(404).json({ message: "Negocio no encontrado" });
+      if (e.message === "FORBIDDEN")
+        return res.status(403).json({ message: "No tenés permisos sobre este negocio" });
+    }
+    console.error("updateProductsBulk:", e);
+    return res.status(500).json({ message: "Error actualizando productos" });
+  }
+}

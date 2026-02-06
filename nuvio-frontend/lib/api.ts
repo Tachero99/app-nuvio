@@ -235,6 +235,8 @@ export type Product = {
   id: number;
   name: string;
   price: number | string | null;
+  cost?: number | string | null;  
+  stock?: number | null;           
   status: "ACTIVE" | "INACTIVE";
   categoryId: number | null;
   description?: string | null;
@@ -360,6 +362,71 @@ export async function updateProduct(productId: number, input: Partial<Product>):
 export async function deleteProduct(productId: number): Promise<void> {
   await apiFetch<void>(`/api/products/${productId}`, { method: "DELETE" });
 }
+
+
+/* =========================
+  PRODUCTS BULK (EDITOR MASIVO)
+========================= */
+
+export type ProductWithCategory = Product & {
+  category?: { id: number; name: string } | null;
+};
+
+export async function listProductsBulk(params?: {
+  categoryId?: number;
+  search?: string;
+  status?: "ACTIVE" | "INACTIVE";
+  sortBy?: "name" | "price" | "createdAt" | "sortOrder" | "stock";
+  sortOrder?: "asc" | "desc";
+}): Promise<{
+  products: ProductWithCategory[];
+  meta: { total: number; active: number; inactive: number };
+  business: BusinessCtx;
+}> {
+  const business = await ensureBusinessCtx();
+
+  const queryParams = new URLSearchParams();
+  if (params?.categoryId) queryParams.set("categoryId", String(params.categoryId));
+  if (params?.search) queryParams.set("search", params.search);
+  if (params?.status) queryParams.set("status", params.status);
+  if (params?.sortBy) queryParams.set("sortBy", params.sortBy);
+  if (params?.sortOrder) queryParams.set("sortOrder", params.sortOrder);
+
+  const queryString = queryParams.toString();
+  const url = `/api/business/${business.id}/products/bulk${queryString ? `?${queryString}` : ""}`;
+
+  const raw = await apiFetch<{
+    products: ProductWithCategory[];
+    meta: { total: number; active: number; inactive: number };
+  }>(url);
+
+  return {
+    products: raw.products,
+    meta: raw.meta,
+    business,
+  };
+}
+
+export async function updateProductsBulk(updates: Array<{
+  id: number;
+  name?: string;
+  price?: number | null;
+  cost?: number | null;
+  status?: "ACTIVE" | "INACTIVE";
+  categoryId?: number | null;
+  description?: string | null;
+  imageUrl?: string | null | undefined;
+  stock?: number | null;
+  sortOrder?: number;
+}>): Promise<{ message: string; products: Product[] }> {
+  const raw = await apiFetch<{ message: string; products: Product[] }>("/api/products/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({ updates }),
+  });
+
+  return raw;
+}
+
 
 /* =========================
   SHARE

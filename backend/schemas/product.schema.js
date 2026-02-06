@@ -43,3 +43,21 @@ export const productUpdateSchema = z.object({
   imageUrl: z.string().trim().url("imageUrl debe ser URL válida").nullable().optional(),
   sortOrder: intField(0, 10000).optional(),
 });
+
+// ✨ NUEVO: Schema para bulk update
+export const productBulkUpdateSchema = z.object({
+  updates: z.array(
+    z.object({
+      id: intField(1, 1_000_000_000),
+      name: z.string().trim().min(1).max(120).optional(),
+      price: numberField(0, 1_000_000_000).nullable().optional(),
+      cost: numberField(0, 1_000_000_000).nullable().optional(),
+      status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+      categoryId: intField(1, 1_000_000_000).nullable().optional(),
+      description: z.string().trim().max(1000).nullable().optional(),
+      imageUrl: z.string().trim().url().nullable().optional(),
+      stock: intField(0, 1_000_000).nullable().optional(),
+      sortOrder: intField(0, 10000).optional(),
+    })
+  ).min(1, "Debe incluir al menos un producto para actualizar"),
+});
