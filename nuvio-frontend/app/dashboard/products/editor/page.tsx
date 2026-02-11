@@ -58,9 +58,7 @@ export default function ProductEditorPage() {
   });
 
   // Bulk actions
-  const [bulkAction, setBulkAction] = useState<
-    "status" | "category" | "price-increase" | ""
-  >("");
+  const [bulkAction, setBulkAction] = useState<"status" | "category" | "price-increase" | "">("");
   const [bulkValue, setBulkValue] = useState("");
 
   // Auth check
@@ -87,10 +85,7 @@ export default function ProductEditorPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const [productsData, categoriesData] = await Promise.all([
-        listProductsBulk(),
-        listCategories(),
-      ]);
+      const [productsData, categoriesData] = await Promise.all([listProductsBulk(), listCategories()]);
       setProducts(productsData.products);
       setCategories(categoriesData.categories);
     } catch (err: any) {
@@ -104,26 +99,22 @@ export default function ProductEditorPage() {
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    // Búsqueda
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((p) => p.name.toLowerCase().includes(q));
     }
 
-    // Categoría
     if (categoryFilter !== "") {
       result = result.filter((p) => p.categoryId === categoryFilter);
     }
 
-    // Estado
     if (statusFilter !== "ALL") {
       result = result.filter((p) => p.status === statusFilter);
     }
 
-    // Ordenar
     result.sort((a, b) => {
-      let valA: any = a[sortField];
-      let valB: any = b[sortField];
+      let valA: any = (a as any)[sortField];
+      let valB: any = (b as any)[sortField];
 
       if (sortField === "price" || sortField === "stock" || sortField === "sortOrder") {
         valA = Number(valA) || 0;
@@ -143,26 +134,18 @@ export default function ProductEditorPage() {
     return result;
   }, [products, search, categoryFilter, statusFilter, sortField, sortOrder]);
 
-  // Selección
   const toggleSelect = (id: number) => {
     const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
     setSelectedIds(newSet);
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredProducts.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredProducts.map((p) => p.id)));
-    }
+    if (selectedIds.size === filteredProducts.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredProducts.map((p) => p.id)));
   };
 
-  // Abrir panel de edición
   const openEditPanel = (product: ProductWithCategory) => {
     setEditingProduct(product);
     setEditForm({
@@ -178,11 +161,8 @@ export default function ProductEditorPage() {
     });
   };
 
-  const closeEditPanel = () => {
-    setEditingProduct(null);
-  };
+  const closeEditPanel = () => setEditingProduct(null);
 
-  // Guardar edición individual
   const handleSaveEdit = async () => {
     if (!editingProduct) return;
 
@@ -212,17 +192,9 @@ export default function ProductEditorPage() {
     }
   };
 
-  // Bulk actions
   const handleBulkAction = async () => {
-    if (selectedIds.size === 0) {
-      notify.error("Seleccioná al menos un producto");
-      return;
-    }
-
-    if (!bulkAction) {
-      notify.error("Seleccioná una acción");
-      return;
-    }
+    if (selectedIds.size === 0) return notify.error("Seleccioná al menos un producto");
+    if (!bulkAction) return notify.error("Seleccioná una acción");
 
     try {
       const updates = Array.from(selectedIds).map((id) => {
@@ -259,390 +231,65 @@ export default function ProductEditorPage() {
 
   const allSelected = filteredProducts.length > 0 && selectedIds.size === filteredProducts.length;
 
+  const statusBadge = (s: "ACTIVE" | "INACTIVE") =>
+    s === "ACTIVE"
+      ? "border-emerald-700/40 bg-emerald-500/10 text-emerald-200"
+      : "border-slate-700/70 bg-slate-900/60 text-slate-300";
+
+  const chip = (active: boolean) =>
+    active
+      ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+      : "border-slate-700/70 bg-slate-900/60 text-slate-300";
+
+  // ✅ Design tokens (solo clases, cero lógica)
+  const card =
+    "rounded-2xl border border-slate-800/80 bg-slate-950/50 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]";
+  const cardPad = "p-4 md:p-5";
+  const label = "block text-[11px] font-medium tracking-wide text-slate-400 mb-1";
+  const inputBase =
+    "w-full rounded-xl bg-slate-900/70 border border-slate-800 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500/70 focus:ring-2 focus:ring-indigo-500/15 placeholder:text-slate-500";
+  const selectBase =
+    "w-full rounded-xl bg-slate-900/70 border border-slate-800 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500/70 focus:ring-2 focus:ring-indigo-500/15";
+  const btn =
+    "rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800/60 active:scale-[0.99] transition disabled:opacity-60";
+  const btnPrimary =
+    "rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white active:scale-[0.99] transition disabled:opacity-60";
+  const thBase =
+    "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-300/90";
+  const tdBase = "px-4 py-3 text-sm text-slate-200";
+
   return (
     <PageShell>
-      <PageHeader title="Editor Masivo de Productos" />
+      <PageHeader
+        title="Editor Masivo de Productos"
+        subtitle="Filtros + tabla + panel lateral para editar rápido."
+      />
 
-      {/* Filtros y búsqueda */}
-      <div className="mb-6 space-y-4">
-        {/* Fila 1: Búsqueda */}
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Buscar productos..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        {/* Fila 2: Filtros */}
-        <div className="flex gap-3">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : "")}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Todas las categorías</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="ALL">Todos los estados</option>
-            <option value="ACTIVE">Activos</option>
-            <option value="INACTIVE">Inactivos</option>
-          </select>
-
-          <Link href="/dashboard/products">
-            <button className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Volver
-            </button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Bulk Actions */}
-      {selectedIds.size > 0 && (
-        <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-          <div className="flex items-center gap-3">
-            <span className="font-medium text-indigo-900">
-              {selectedIds.size} producto{selectedIds.size > 1 ? "s" : ""} seleccionado
-              {selectedIds.size > 1 ? "s" : ""}:
-            </span>
-
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value as any)}
-              className="px-3 py-1.5 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Seleccionar acción...</option>
-              <option value="status">Cambiar estado</option>
-              <option value="category">Cambiar categoría</option>
-              <option value="price-increase">Aumentar precios %</option>
-            </select>
-
-            {bulkAction === "status" && (
-              <select
-                value={bulkValue}
-                onChange={(e) => setBulkValue(e.target.value)}
-                className="px-3 py-1.5 border border-indigo-300 rounded-lg"
-              >
-                <option value="">Seleccionar estado...</option>
-                <option value="ACTIVE">Activo</option>
-                <option value="INACTIVE">Inactivo</option>
-              </select>
-            )}
-
-            {bulkAction === "category" && (
-              <select
-                value={bulkValue}
-                onChange={(e) => setBulkValue(e.target.value)}
-                className="px-3 py-1.5 border border-indigo-300 rounded-lg"
-              >
-                <option value="">Seleccionar categoría...</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {bulkAction === "price-increase" && (
-              <input
-                type="number"
-                placeholder="% (ej: 10)"
-                value={bulkValue}
-                onChange={(e) => setBulkValue(e.target.value)}
-                className="w-24 px-3 py-1.5 border border-indigo-300 rounded-lg"
-              />
-            )}
-
-            <button
-              onClick={handleBulkAction}
-              disabled={!bulkAction || !bulkValue}
-              className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Aplicar
-            </button>
-
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="px-4 py-1.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tabla mejorada */}
-<div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-  {loading ? (
-    <div className="p-12 text-center">
-      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      <p className="mt-4 text-gray-600 font-medium">Cargando productos...</p>
-    </div>
-  ) : filteredProducts.length === 0 ? (
-    <div className="p-12 text-center">
-      <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-      </svg>
-      <p className="mt-4 text-lg font-medium text-gray-900">No hay productos</p>
-      <p className="mt-1 text-sm text-gray-500">Ajustá los filtros o creá nuevos productos</p>
-    </div>
-  ) : (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-gradient-to-r from-indigo-600 to-indigo-700">
-          <tr>
-            <th className="w-14 px-6 py-4">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleSelectAll}
-                className="w-5 h-5 text-indigo-600 bg-white border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
-              />
-            </th>
-            <th
-              className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-indigo-700 transition-colors select-none"
-              onClick={() => {
-                if (sortField === "name") {
-                  setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                } else {
-                  setSortField("name");
-                  setSortOrder("asc");
-                }
-              }}
-            >
-              <div className="flex items-center gap-2">
-                Nombre
-                {sortField === "name" && (
-                  <span className="text-indigo-200">
-                    {sortOrder === "asc" ? "↑" : "↓"}
-                  </span>
-                )}
-              </div>
-            </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">
-              Categoría
-            </th>
-            <th
-              className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-indigo-700 transition-colors select-none"
-              onClick={() => {
-                if (sortField === "price") {
-                  setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                } else {
-                  setSortField("price");
-                  setSortOrder("asc");
-                }
-              }}
-            >
-              <div className="flex items-center gap-2">
-                Precio
-                {sortField === "price" && (
-                  <span className="text-indigo-200">
-                    {sortOrder === "asc" ? "↑" : "↓"}
-                  </span>
-                )}
-              </div>
-            </th>
-            <th
-              className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-indigo-700 transition-colors select-none"
-              onClick={() => {
-                if (sortField === "stock") {
-                  setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                } else {
-                  setSortField("stock");
-                  setSortOrder("asc");
-                }
-              }}
-            >
-              <div className="flex items-center gap-2">
-                Stock
-                {sortField === "stock" && (
-                  <span className="text-indigo-200">
-                    {sortOrder === "asc" ? "↑" : "↓"}
-                  </span>
-                )}
-              </div>
-            </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">
-              Estado
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {filteredProducts.map((product, idx) => (
-            <tr
-              key={product.id}
-              className={`transition-all duration-150 cursor-pointer ${
-                idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-              } hover:bg-indigo-50 hover:shadow-md`}
-              onClick={() => openEditPanel(product)}
-            >
-              <td
-                className="px-6 py-4"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(product.id)}
-                  onChange={() => toggleSelect(product.id)}
-                  className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
-                />
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-4">
-                  {product.imageUrl && product.imageUrl !== null ? (
-                    <img
-                      src={resolveMediaUrl(product.imageUrl) || ""}
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-lg shadow-sm ring-2 ring-gray-100"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg flex items-center justify-center shadow-sm ring-2 ring-gray-100">
-                      <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
-                  <span className="font-semibold text-gray-900">{product.name}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                {product.category?.name ? (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                    {product.category.name}
-                  </span>
-                ) : (
-                  <span className="text-gray-400 italic text-sm">Sin categoría</span>
-                )}
-              </td>
-              <td className="px-6 py-4">
-                <span className="text-lg font-bold text-gray-900">
-                  ${Number(product.price || 0).toLocaleString()}
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <span className="text-gray-700 font-medium">
-                  {(product as any).stock ?? "-"}
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <span
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
-                    product.status === "ACTIVE"
-                      ? "bg-green-100 text-green-800 ring-2 ring-green-200"
-                      : "bg-gray-100 text-gray-800 ring-2 ring-gray-200"
-                  }`}
-                >
-                  {product.status === "ACTIVE" ? (
-                    <>
-                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                      Activo
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
-                      Inactivo
-                    </>
-                  )}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )}
-</div>
-      
-
-      {/* Panel lateral de edición */}
-      {editingProduct && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
-          onClick={closeEditPanel}
-        >
-          <div
-            className="bg-white w-full max-w-md h-full overflow-y-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Editar Producto</h2>
-                <button
-                  onClick={closeEditPanel}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre *
-                  </label>
+      <div className="space-y-4">
+        {/* Toolbar */}
+        <div className={card}>
+          <div className={cardPad}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex-1 grid gap-3 lg:grid-cols-12">
+                <div className="lg:col-span-6">
+                  <label className={label}>Buscar</label>
                   <input
                     type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Buscar por nombre..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className={inputBase}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Precio *
-                    </label>
-                    <input
-                      type="number"
-                      value={editForm.price}
-                      onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Costo
-                    </label>
-                    <input
-                      type="number"
-                      value={editForm.cost}
-                      onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Categoría
-                  </label>
+                <div className="lg:col-span-3">
+                  <label className={label}>Categoría</label>
                   <select
-                    value={editForm.categoryId}
-                    onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : "")}
+                    className={selectBase}
                   >
-                    <option value="">Sin categoría</option>
+                    <option value="">Todas</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
@@ -651,88 +298,490 @@ export default function ProductEditorPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                    <input
-                      type="number"
-                      value={editForm.stock}
-                      onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                    <select
-                      value={editForm.status}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, status: e.target.value as any })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="ACTIVE">Activo</option>
-                      <option value="INACTIVE">Inactivo</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descripción
-                  </label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    URL de Imagen
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.imageUrl}
-                    onChange={(e) => setEditForm({ ...editForm, imageUrl: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  {editForm.imageUrl && editForm.imageUrl !== null && (
-                    <img
-                      src={resolveMediaUrl(editForm.imageUrl) || ""}
-                      alt="Preview"
-                      className="mt-2 w-full h-32 object-cover rounded-lg"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Orden
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.sortOrder}
-                    onChange={(e) => setEditForm({ ...editForm, sortOrder: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                <div className="lg:col-span-3">
+                  <label className={label}>Estado</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                    className={selectBase}
+                  >
+                    <option value="ALL">Todos</option>
+                    <option value="ACTIVE">Activos</option>
+                    <option value="INACTIVE">Inactivos</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleSaveEdit}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
-                >
-                  Guardar Cambios
+              <div className="flex flex-wrap gap-2">
+                <Link href="/dashboard/products" className={btn}>
+                  ← Volver
+                </Link>
+
+                <button onClick={loadData} disabled={loading} className={btn}>
+                  {loading ? "Cargando..." : "Refrescar"}
                 </button>
-                <button
-                  onClick={closeEditPanel}
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              </div>
+            </div>
+
+            {/* Sort row */}
+            <div className="mt-4 grid gap-3 lg:grid-cols-12">
+              <div className="lg:col-span-4">
+                <label className={label}>Ordenar por</label>
+                <select
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value as SortField)}
+                  className={selectBase}
                 >
-                  Cancelar
+                  <option value="sortOrder">Orden</option>
+                  <option value="name">Nombre</option>
+                  <option value="price">Precio</option>
+                  <option value="stock">Stock</option>
+                </select>
+              </div>
+
+              <div className="lg:col-span-4">
+                <label className={label}>Dirección</label>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+                  className={selectBase}
+                >
+                  <option value="asc">Ascendente</option>
+                  <option value="desc">Descendente</option>
+                </select>
+              </div>
+
+              <div className="lg:col-span-4 flex items-end justify-between gap-2">
+                <div className="text-xs text-slate-400">
+                  Mostrando{" "}
+                  <span className="text-slate-100 font-semibold">{filteredProducts.length}</span> /{" "}
+                  <span className="text-slate-100 font-semibold">{products.length}</span>
+                </div>
+
+                <div className={`text-xs px-2.5 py-1 rounded-full border ${chip(selectedIds.size > 0)}`}>
+                  Seleccionados: <span className="font-semibold">{selectedIds.size}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bulk Actions */}
+        {selectedIds.size > 0 && (
+          <div className="rounded-2xl border border-indigo-400/20 bg-indigo-500/10">
+            <div className="p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-sm text-indigo-100">
+                <span className="font-semibold">{selectedIds.size}</span> producto
+                {selectedIds.size > 1 ? "s" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}.
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={bulkAction}
+                  onChange={(e) => {
+                    setBulkAction(e.target.value as any);
+                    setBulkValue("");
+                  }}
+                  className={selectBase}
+                >
+                  <option value="">Acción masiva...</option>
+                  <option value="status">Cambiar estado</option>
+                  <option value="category">Cambiar categoría</option>
+                  <option value="price-increase">Aumentar precios (%)</option>
+                </select>
+
+                {bulkAction === "status" && (
+                  <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className={selectBase}>
+                    <option value="">Estado...</option>
+                    <option value="ACTIVE">Activo</option>
+                    <option value="INACTIVE">Inactivo</option>
+                  </select>
+                )}
+
+                {bulkAction === "category" && (
+                  <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className={selectBase}>
+                    <option value="">Categoría...</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {bulkAction === "price-increase" && (
+                  <input
+                    type="number"
+                    placeholder="% (ej: 10)"
+                    value={bulkValue}
+                    onChange={(e) => setBulkValue(e.target.value)}
+                    className={`${inputBase} w-28`}
+                  />
+                )}
+
+                <button onClick={handleBulkAction} disabled={!bulkAction || !bulkValue} className={btnPrimary}>
+                  Aplicar
                 </button>
+
+                <button onClick={() => setSelectedIds(new Set())} className={btn}>
+                  Limpiar selección
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tabla */}
+        <div className={`${card} overflow-hidden`}>
+          {/* Loading */}
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-slate-700 border-t-indigo-500" />
+              <p className="mt-3 text-sm text-slate-300">Cargando productos…</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="mx-auto h-12 w-12 rounded-2xl border border-slate-800 bg-slate-900/50 flex items-center justify-center">
+                <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.6}
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                  />
+                </svg>
+              </div>
+              <p className="mt-3 text-base font-semibold text-slate-100">No hay productos con esos filtros</p>
+              <p className="mt-1 text-sm text-slate-400">Probá cambiar búsqueda, estado o categoría.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-245 w-full">
+                <thead className="bg-slate-950/70 sticky top-0 z-10 backdrop-blur border-b border-slate-800/70">
+                  <tr>
+                    <th className={`${thBase} w-14`}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </th>
+
+                    <th
+                      className={`${thBase} cursor-pointer select-none`}
+                      onClick={() => {
+                        if (sortField === "name") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                        else {
+                          setSortField("name");
+                          setSortOrder("asc");
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        Nombre
+                        {sortField === "name" && (
+                          <span className="text-indigo-300 text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                        )}
+                      </div>
+                    </th>
+
+                    <th className={thBase}>Categoría</th>
+
+                    <th
+                      className={`${thBase} cursor-pointer select-none`}
+                      onClick={() => {
+                        if (sortField === "price") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                        else {
+                          setSortField("price");
+                          setSortOrder("asc");
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        Precio
+                        {sortField === "price" && (
+                          <span className="text-indigo-300 text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                        )}
+                      </div>
+                    </th>
+
+                    <th
+                      className={`${thBase} cursor-pointer select-none`}
+                      onClick={() => {
+                        if (sortField === "stock") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                        else {
+                          setSortField("stock");
+                          setSortOrder("asc");
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        Stock
+                        {sortField === "stock" && (
+                          <span className="text-indigo-300 text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                        )}
+                      </div>
+                    </th>
+
+                    <th className={thBase}>Estado</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-800/70">
+                  {filteredProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="hover:bg-slate-900/40 transition-colors cursor-pointer"
+                      onClick={() => openEditPanel(product)}
+                    >
+                      <td className={tdBase} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(product.id)}
+                          onChange={() => toggleSelect(product.id)}
+                          className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </td>
+
+                      <td className={tdBase}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          {product.imageUrl ? (
+                            <img
+                              src={resolveMediaUrl(product.imageUrl) || ""}
+                              alt={product.name}
+                              className="h-10 w-10 rounded-xl object-cover border border-slate-800"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-xl border border-slate-800 bg-slate-900/40" />
+                          )}
+
+                          <div className="min-w-0">
+                            <div className="text-sm text-slate-100 font-semibold truncate">{product.name}</div>
+                            <div className="text-xs text-slate-500 font-mono">#{product.id}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className={tdBase}>
+                        {product.category?.name ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-slate-700/70 bg-slate-900/60 text-slate-200">
+                            {product.category.name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">(sin categoría)</span>
+                        )}
+                      </td>
+
+                      <td className={tdBase}>
+                        <span className="font-mono text-slate-100">
+                          ${Number(product.price || 0).toLocaleString()}
+                        </span>
+                      </td>
+
+                      <td className={tdBase}>
+                        <span className="font-mono text-slate-200">{(product as any).stock ?? "-"}</span>
+                      </td>
+
+                      <td className={tdBase}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full border text-xs ${statusBadge(
+                            product.status
+                          )}`}
+                        >
+                          {product.status === "ACTIVE" ? "ACTIVO" : "INACTIVO"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="border-t border-slate-800/70 bg-slate-950/70 px-4 py-3 text-xs text-slate-400">
+                Tip: click en una fila para abrir el panel lateral de edición. ✅
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Panel lateral */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50">
+          {/* overlay */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={closeEditPanel} />
+
+          {/* drawer */}
+          <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-slate-800/80 bg-slate-950 shadow-2xl">
+            <div className="h-full overflow-y-auto">
+              {/* Header */}
+              <div className="p-5 border-b border-slate-800/80">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-lg font-semibold text-slate-100 truncate">Editar producto</div>
+                    <div className="mt-1 text-xs text-slate-400">
+                      ID <span className="font-mono text-slate-200">#{editingProduct.id}</span>
+                      <span
+                        className={`ml-2 inline-flex px-2 py-0.5 rounded-full border text-[11px] ${statusBadge(
+                          editForm.status
+                        )}`}
+                      >
+                        {editForm.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={closeEditPanel}
+                    className="rounded-xl border border-slate-800 bg-slate-900/70 px-2.5 py-1.5 text-slate-200 hover:bg-slate-800/60"
+                    aria-label="Cerrar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Imagen */}
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-4">
+                  <div className="flex items-center gap-3">
+                    {editForm.imageUrl ? (
+                      <img
+                        src={resolveMediaUrl(editForm.imageUrl) || ""}
+                        alt="preview"
+                        className="h-16 w-16 rounded-2xl object-cover border border-slate-800"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-2xl border border-slate-800 bg-slate-900/40" />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className={label}>URL de imagen</div>
+                      <input
+                        type="text"
+                        value={editForm.imageUrl}
+                        onChange={(e) => setEditForm({ ...editForm, imageUrl: e.target.value })}
+                        className={inputBase}
+                        placeholder="/uploads/..."
+                      />
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        Pegá una URL o ruta <span className="font-mono">/uploads/...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Datos */}
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-4">
+                  <div className="grid gap-4">
+                    <div>
+                      <label className={label}>Nombre *</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className={inputBase}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={label}>Precio *</label>
+                        <input
+                          type="number"
+                          value={editForm.price}
+                          onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                          className={inputBase}
+                        />
+                      </div>
+                      <div>
+                        <label className={label}>Costo</label>
+                        <input
+                          type="number"
+                          value={editForm.cost}
+                          onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })}
+                          className={inputBase}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={label}>Stock</label>
+                        <input
+                          type="number"
+                          value={editForm.stock}
+                          onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
+                          className={inputBase}
+                        />
+                      </div>
+
+                      <div>
+                        <label className={label}>Estado</label>
+                        <select
+                          value={editForm.status}
+                          onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                          className={selectBase}
+                        >
+                          <option value="ACTIVE">Activo</option>
+                          <option value="INACTIVE">Inactivo</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={label}>Categoría</label>
+                      <select
+                        value={editForm.categoryId}
+                        onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+                        className={selectBase}
+                      >
+                        <option value="">Sin categoría</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={label}>Descripción</label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        rows={4}
+                        className={`${inputBase} resize-none`}
+                        placeholder="Opcional..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className={label}>Orden</label>
+                      <input
+                        type="number"
+                        value={editForm.sortOrder}
+                        onChange={(e) => setEditForm({ ...editForm, sortOrder: e.target.value })}
+                        className={inputBase}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer sticky */}
+              <div className="sticky bottom-0 border-t border-slate-800/80 bg-slate-950/80 backdrop-blur p-4">
+                <div className="flex gap-2">
+                  <button onClick={handleSaveEdit} className={`flex-1 ${btnPrimary}`}>
+                    Guardar
+                  </button>
+                  <button onClick={closeEditPanel} className={btn}>
+                    Cancelar
+                  </button>
+                </div>
+                <div className="mt-2 text-[11px] text-slate-500">
+                  Consejo: editá rápido acá; para cambios masivos usá la barra de acciones arriba.
+                </div>
               </div>
             </div>
           </div>

@@ -15,7 +15,6 @@ export function getStoredUser<T = any>(): T | null {
   }
 }
 
-
 export type StoredUser = {
   id: number;
   name: string;

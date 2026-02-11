@@ -1,6 +1,7 @@
 // controllers/product.controller.js
 import prisma from "../prismaClient.js";
 import { Prisma } from "@prisma/client";
+import xlsx from "xlsx";
 
 async function assertCanAccessBusiness(req, businessId) {
   const role = req.user?.role;
@@ -361,5 +362,251 @@ export async function updateProductsBulk(req, res) {
     }
     console.error("updateProductsBulk:", e);
     return res.status(500).json({ message: "Error actualizando productos" });
+  }
+}
+
+// ✨ POST /api/business/:businessId/products/import
+export async function importProductsFromExcel(req, res) {
+  try {
+    const businessId = Number(req.params.businessId);
+    if (!businessId) return res.status(400).json({ message: "businessId inválido" });
+
+    await assertCanAccessBusiness(req, businessId);
+
+    // Verificar que se subió un archivo
+    if (!req.file) {
+      return res.status(400).json({ message: "No se subió ningún archivo" });
+    }
+
+    // Leer el archivo Excel
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    // Convertir a JSON
+    const rows = xlsx.utils.sheet_to_json(sheet, { defval: null });
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: "El archivo está vacío" });
+    }
+
+    // Validar y procesar filas
+    const validRows = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNumber = i + 2; // +2 porque Excel empieza en 1 y hay header
+
+      // Validar campos obligatorios
+      if (!row.categoria || String(row.categoria).trim() === "") {
+        errors.push(`Fila ${rowNumber}: Categoría es obligatoria`);
+        continue;
+      }
+
+      if (!row.producto || String(row.producto).trim() === "") {
+        errors.push(`Fila ${rowNumber}: Nombre del producto es obligatorio`);
+        continue;
+      }
+
+      // Validar precio (opcional pero si viene debe ser válido)
+      let price = null;
+      if (row.precio !== null && row.precio !== undefined && row.precio !== "") {
+        const priceNum = Number(row.precio);
+        if (isNaN(priceNum) || priceNum < 0) {
+          errors.push(`Fila ${rowNumber}: Precio inválido`);
+          continue;
+        }
+        price = priceNum;
+      }
+
+      validRows.push({
+        categoryName: String(row.categoria).trim(),
+        sectionName: row.seccion ? String(row.seccion).trim() : null,
+        productName: String(row.producto).trim(),
+        price: price,
+        description: row.descripcion ? String(row.descripcion).trim() : null,
+      });
+    }
+
+    // Si hay errores críticos, retornar
+    if (errors.length > 0 && validRows.length === 0) {
+      return res.status(400).json({
+        message: "Errores en el archivo",
+        errors,
+      });
+    }
+
+    // Agrupar por categoría
+    const categoriesMap = new Map();
+
+    for (const row of validRows) {
+      if (!categoriesMap.has(row.categoryName)) {
+        categoriesMap.set(row.categoryName, []);
+      }
+      categoriesMap.get(row.categoryName).push(row);
+    }
+
+    // Obtener categorías existentes del negocio
+    const existingCategories = await prisma.category.findMany({
+      where: { businessId },
+      select: { id: true, name: true },
+    });
+
+    const categoryNameToId = new Map(
+      existingCategories.map((cat) => [cat.name.toLowerCase(), cat.id])
+    );
+
+    // Preparar resumen
+    const summary = {
+      totalRows: rows.length,
+      validRows: validRows.length,
+      errors: errors,
+      categoriesToCreate: [],
+      categoriesToUpdate: [],
+      productsToCreate: [],
+      productsToUpdate: [],
+    };
+
+    // Por cada categoría
+    for (const [categoryName, products] of categoriesMap) {
+      const categoryNameLower = categoryName.toLowerCase();
+      let categoryId = categoryNameToId.get(categoryNameLower);
+
+      if (!categoryId) {
+        // Categoría nueva
+        summary.categoriesToCreate.push(categoryName);
+      } else {
+        summary.categoriesToUpdate.push(categoryName);
+      }
+
+      // Por cada producto
+      for (const prod of products) {
+        summary.productsToCreate.push(prod.productName);
+      }
+    }
+
+    // Retornar preview
+    return res.json({
+      message: "Archivo procesado exitosamente",
+      summary,
+      preview: validRows.slice(0, 10), // Primeros 10 para preview
+    });
+  } catch (e) {
+    console.error("importProductsFromExcel:", e);
+    return res.status(500).json({ message: "Error procesando archivo Excel" });
+  }
+}
+
+// ✨ POST /api/business/:businessId/products/import/confirm
+export async function confirmImportProducts(req, res) {
+  try {
+    const businessId = Number(req.params.businessId);
+    const { rows } = req.body; // Array de filas validadas
+
+    if (!businessId) return res.status(400).json({ message: "businessId inválido" });
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: "No hay filas para importar" });
+    }
+
+    await assertCanAccessBusiness(req, businessId);
+
+    // Agrupar por categoría
+    const categoriesMap = new Map();
+
+    for (const row of rows) {
+      if (!categoriesMap.has(row.categoryName)) {
+        categoriesMap.set(row.categoryName, []);
+      }
+      categoriesMap.get(row.categoryName).push(row);
+    }
+
+    // Obtener categorías existentes
+    const existingCategories = await prisma.category.findMany({
+      where: { businessId },
+      select: { id: true, name: true },
+    });
+
+    const categoryNameToId = new Map(
+      existingCategories.map((cat) => [cat.name.toLowerCase(), cat.id])
+    );
+
+    const results = {
+      categoriesCreated: 0,
+      productsCreated: 0,
+      productsUpdated: 0,
+    };
+
+    // Procesar en transacción
+    await prisma.$transaction(async (tx) => {
+      // Por cada categoría
+      for (const [categoryName, products] of categoriesMap) {
+        const categoryNameLower = categoryName.toLowerCase();
+        let categoryId = categoryNameToId.get(categoryNameLower);
+
+        // Crear categoría si no existe
+        if (!categoryId) {
+          const newCategory = await tx.category.create({
+            data: {
+              businessId,
+              name: categoryName,
+              sortOrder: 0,
+              isActive: true,
+            },
+          });
+          categoryId = newCategory.id;
+          categoryNameToId.set(categoryNameLower, categoryId);
+          results.categoriesCreated++;
+        }
+
+        // Por cada producto de esta categoría
+        for (const prod of products) {
+          // Verificar si el producto ya existe (por nombre y categoría)
+          const existing = await tx.product.findFirst({
+            where: {
+              businessId,
+              categoryId,
+              name: prod.productName,
+            },
+          });
+
+          if (existing) {
+            // Actualizar solo el precio si viene
+            if (prod.price !== null) {
+              await tx.product.update({
+                where: { id: existing.id },
+                data: {
+                  price: toDecimal(prod.price),
+                  description: prod.description || existing.description,
+                },
+              });
+              results.productsUpdated++;
+            }
+          } else {
+            // Crear producto nuevo
+            await tx.product.create({
+              data: {
+                businessId,
+                categoryId,
+                name: prod.productName,
+                price: prod.price !== null ? toDecimal(prod.price) : toDecimal(0),
+                description: prod.description,
+                status: "ACTIVE",
+                sortOrder: 0,
+              },
+            });
+            results.productsCreated++;
+          }
+        }
+      }
+    });
+
+    return res.json({
+      message: "Importación completada exitosamente",
+      results,
+    });
+  } catch (e) {
+    console.error("confirmImportProducts:", e);
+    return res.status(500).json({ message: "Error confirmando importación" });
   }
 }

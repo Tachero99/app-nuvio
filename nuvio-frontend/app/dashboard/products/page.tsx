@@ -372,6 +372,12 @@ export default function ProductsPage() {
             ← Volver al dashboard
           </Link>
 
+          <Link href="/dashboard/products/import">
+            <button className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+              📥 Importar desde Excel
+            </button>
+          </Link>
+
           <div className="flex items-center gap-2">
             <input
               value={q}
