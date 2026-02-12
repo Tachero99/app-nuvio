@@ -1,4 +1,4 @@
-// prisma/schema.prisma
+// prisma/schema.prisma - ACTUALIZADO CON SECTIONS
 
 datasource db {
   provider = "postgresql"
@@ -50,6 +50,7 @@ model Business {
   updatedAt DateTime @default(now()) @updatedAt
 
   categories Category[]
+  sections   Section[]   // ✨ NUEVO
   products   Product[]
 
   orders Order[]
@@ -68,7 +69,28 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  sections Section[]  // ✨ NUEVO: una categoría puede tener múltiples secciones
   products Product[]
+}
+
+// ✨ NUEVO MODELO
+model Section {
+  id         Int      @id @default(autoincrement())
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  
+  name       String
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  products Product[]
+
+  @@index([categoryId])
 }
 
 model Product {
@@ -77,6 +99,9 @@ model Product {
   businessId  Int
   category    Category?     @relation(fields: [categoryId], references: [id])
   categoryId  Int?
+  section     Section?      @relation(fields: [sectionId], references: [id])  // ✨ NUEVO
+  sectionId   Int?          // ✨ NUEVO
+  
   name        String
   price       Decimal
   cost        Decimal?
@@ -89,6 +114,9 @@ model Product {
   updatedAt   DateTime      @default(now()) @updatedAt
 
   orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([sectionId])  // ✨ NUEVO
 }
 
 enum OrderStatus {

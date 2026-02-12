@@ -1,12 +1,13 @@
 // app/m/[slug]/page.tsx
 import { waChatLink } from "@/lib/share";
 import PublicMenuClient from "./PublicMenuClient";
-import type { MenuCategory, MenuProduct, MenuResponse } from "./types";
+import type { MenuCategory, MenuProduct, MenuResponse, MenuSection } from "./types";
 
 function num(v: any, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
+
 function bySortOrderThenId(a: any, b: any) {
   const ao = num(a?.sortOrder, 0);
   const bo = num(b?.sortOrder, 0);
@@ -43,14 +44,32 @@ export default async function PublicMenuPage({
     const data = await fetchMenu(slug);
     const waBase = waChatLink(data.business.whatsapp);
 
+    // ✨ Procesar categorías con secciones
     const categories: MenuCategory[] = [...(data.categories ?? [])]
-      .map((c) => ({
-        ...c,
-        products: [...(c.products ?? [])]
+      .map((c) => {
+        // Procesar secciones
+        const sections: MenuSection[] = [...(c.sections ?? [])]
+          .map((s) => ({
+            ...s,
+            products: [...(s.products ?? [])]
+              .filter((p) => (p.status ?? "ACTIVE") === "ACTIVE")
+              .sort(bySortOrderThenId),
+          }))
+          .filter((s) => s.products.length > 0) // Solo secciones con productos activos
+          .sort(bySortOrderThenId);
+
+        // Procesar productos sin sección
+        const products = [...(c.products ?? [])]
           .filter((p) => (p.status ?? "ACTIVE") === "ACTIVE")
-          .sort(bySortOrderThenId),
-      }))
-      .filter((c) => c.products.length > 0)
+          .sort(bySortOrderThenId);
+
+        return {
+          ...c,
+          sections,
+          products,
+        };
+      })
+      .filter((c) => c.sections.length > 0 || c.products.length > 0) // Solo categorías con contenido
       .sort(bySortOrderThenId);
 
     const ungroupedProducts: MenuProduct[] = [...(data.ungroupedProducts ?? [])]

@@ -12,6 +12,8 @@ import { ImagePicker } from "@/components/ui/ImagePicker";
 
 import { resolveMediaUrl } from "@/lib/media";
 
+import { ManageSectionsModal } from "@/components/modals/ManageSectionsModal";
+
 import {
   listCategories,
   createCategory,
@@ -49,6 +51,20 @@ export default function CategoriesPage() {
   const [newSortOrder, setNewSortOrder] = useState("0");
   const [newImageUrl, setNewImageUrl] = useState("");
 
+  // modal de secciones
+  const [sectionsModalOpen, setSectionsModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+
+  function openSectionsModal(category: Category) {
+    setSelectedCategory(category);
+    setSectionsModalOpen(true);
+  }
+
+  function closeSectionsModal() {
+    setSectionsModalOpen(false);
+    setSelectedCategory(null);
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -59,7 +75,6 @@ export default function CategoriesPage() {
       const u = JSON.parse(raw);
       setUser({ name: u.name, email: u.email, role: u.role });
 
-      // si es superadmin, lo sacamos del panel cliente
       if (u?.role === "SUPERADMIN") router.replace("/admin");
     } catch {
       router.replace("/login");
@@ -83,7 +98,6 @@ export default function CategoriesPage() {
       const data = await listCategories();
       setCategories(data.categories ?? []);
 
-      // warning de delete: contar productos por categoria
       const prods = await listProducts();
       const map: Record<number, number> = {};
       (prods.products ?? []).forEach((p: any) => {
@@ -99,12 +113,11 @@ export default function CategoriesPage() {
     }
   }
 
-    useEffect(() => {
-      if (!user) return;
-      refresh();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]);
-
+  useEffect(() => {
+    if (!user) return;
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -198,7 +211,6 @@ export default function CategoriesPage() {
       setErr(null);
       await deleteCategory(cat.id);
 
-      // optimista
       setCategories((prev) => prev.filter((c) => c.id !== cat.id));
       setCatProductCount((prev) => {
         const copy = { ...prev };
@@ -215,10 +227,8 @@ export default function CategoriesPage() {
   }
 
   async function persistCategoryOrder(next: Category[]) {
-    // seteo sortOrder 0..n SOLO para esta lista
     const normalized = next.map((c, idx) => ({ ...c, sortOrder: idx }));
 
-    // optimistic
     setCategories((prev) =>
       prev.map((c) => {
         const found = normalized.find((x) => x.id === c.id);
@@ -226,7 +236,6 @@ export default function CategoriesPage() {
       })
     );
 
-    // persist solo los que cambiaron vs snapshot actual
     const changed = normalized.filter((c) => {
       const old = categories.find((x) => x.id === c.id);
       return (old?.sortOrder ?? 0) !== c.sortOrder;
@@ -256,7 +265,6 @@ export default function CategoriesPage() {
       />
 
       <main className="space-y-6">
-        {/* top bar */}
         <div className="flex items-center justify-between gap-3">
           <Link href="/dashboard" className="text-sm text-indigo-300 hover:text-indigo-200 underline">
             ← Volver al dashboard
@@ -288,7 +296,6 @@ export default function CategoriesPage() {
           </Card>
         )}
 
-        {/* stats */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <div className="text-xs text-slate-400">Total</div>
@@ -304,7 +311,6 @@ export default function CategoriesPage() {
           </Card>
         </div>
 
-        {/* crear */}
         <Card>
           <div className="grid gap-3 md:grid-cols-12">
             <div className="md:col-span-6">
@@ -355,12 +361,11 @@ export default function CategoriesPage() {
           </div>
         </Card>
 
-        {/* listas 2 columnas */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100">Activas ({activeList.length})</h2>
-              <p className="text-xs text-slate-400">Arrastrá “≡” para reordenar.</p>
+              <p className="text-xs text-slate-400">Arrastrá "≡" para reordenar.</p>
             </div>
 
             {activeList.length === 0 ? (
@@ -379,6 +384,7 @@ export default function CategoriesPage() {
                     onPatch={onPatch}
                     onToggle={onToggle}
                     onDelete={onDelete}
+                    onOpenSections={openSectionsModal}
                     productCount={catProductCount[c.id] ?? 0}
                     draggableProps={draggableProps}
                     handleProps={handleProps}
@@ -391,7 +397,7 @@ export default function CategoriesPage() {
           <Card>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100">Inactivas ({inactiveList.length})</h2>
-              <p className="text-xs text-slate-400">Arrastrá “≡” para reordenar.</p>
+              <p className="text-xs text-slate-400">Arrastrá "≡" para reordenar.</p>
             </div>
 
             {inactiveList.length === 0 ? (
@@ -410,6 +416,7 @@ export default function CategoriesPage() {
                     onPatch={onPatch}
                     onToggle={onToggle}
                     onDelete={onDelete}
+                    onOpenSections={openSectionsModal}
                     productCount={catProductCount[c.id] ?? 0}
                     draggableProps={draggableProps}
                     handleProps={handleProps}
@@ -420,6 +427,15 @@ export default function CategoriesPage() {
           </Card>
         </div>
       </main>
+
+      {sectionsModalOpen && selectedCategory && (
+        <ManageSectionsModal
+          categoryId={selectedCategory.id}
+          categoryName={selectedCategory.name}
+          isOpen={sectionsModalOpen}
+          onClose={closeSectionsModal}
+        />
+      )}
     </PageShell>
   );
 }
@@ -429,6 +445,7 @@ function CategoryRow({
   onPatch,
   onToggle,
   onDelete,
+  onOpenSections,
   productCount,
   draggableProps,
   handleProps,
@@ -440,6 +457,7 @@ function CategoryRow({
   ) => void;
   onToggle: (c: Category) => void;
   onDelete: (c: Category) => void;
+  onOpenSections: (c: Category) => void;
   productCount: number;
   draggableProps: React.HTMLAttributes<HTMLElement>;
   handleProps: React.HTMLAttributes<HTMLElement>;
@@ -450,7 +468,6 @@ function CategoryRow({
   const [imageUrl, setImageUrl] = useState(category.imageUrl ?? "");
   const [sortOrder, setSortOrder] = useState(String(category.sortOrder ?? 0));
 
-  // ✅ preview dentro de la fila
   const imgSrc = category.imageUrl ? resolveMediaUrl(category.imageUrl) : null;
 
   function save() {
@@ -515,12 +532,21 @@ function CategoryRow({
 
         <div className="flex flex-wrap gap-2">
           {!editing ? (
-            <button
-              onClick={() => setEditing(true)}
-              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-            >
-              Editar
-            </button>
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
+              >
+                Editar
+              </button>
+              
+              <button
+                onClick={() => onOpenSections(category)}
+                className="rounded-lg border border-blue-800 bg-blue-950/40 px-3 py-1.5 text-sm text-blue-200 hover:bg-blue-950/60"
+              >
+                🗂️ Secciones
+              </button>
+            </>
           ) : (
             <>
               <button

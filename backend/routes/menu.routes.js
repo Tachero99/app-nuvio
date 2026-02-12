@@ -1,4 +1,4 @@
-// routes/menu.routes.js
+// routes/menu.routes.js - ACTUALIZADO CON SECCIONES
 import { Router } from "express";
 import { prisma } from "../prismaClient.js";
 import QRCode from "qrcode"; 
@@ -39,22 +39,20 @@ router.get("/:slug/qr.png", async (req, res) => {
 });
 
 
-// Endpoint público: menú por slug de negocio
+// ✨ Endpoint público: menú por slug de negocio (CON SECCIONES)
 router.get("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
 
     const business = await prisma.business.findUnique({
       where: { slug },
-      include: {
-        categories: {
-          where: { isActive: true },
-          orderBy: { sortOrder: "asc" },
-        },
-        products: {
-          where: { status: "ACTIVE" },
-          orderBy: { sortOrder: "asc" },
-        },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        whatsapp: true,
+        address: true,
+        isActive: true,
       },
     });
 
@@ -64,17 +62,62 @@ router.get("/:slug", async (req, res) => {
         .json({ message: "Menú no disponible para este negocio" });
     }
 
-    const categories = business.categories.map((cat) => ({
+    // Obtener categorías activas con secciones y productos
+    const categories = await prisma.category.findMany({
+      where: {
+        businessId: business.id,
+        isActive: true,
+      },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        // ✨ NUEVO: incluir secciones
+        sections: {
+          where: { isActive: true },
+          orderBy: { sortOrder: "asc" },
+          include: {
+            products: {
+              where: { status: "ACTIVE" },
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        },
+        // Productos SIN sección
+        products: {
+          where: {
+            status: "ACTIVE",
+            sectionId: null, // ✨ solo productos sin sección
+          },
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+
+    // Productos sin categoría (ungrouped)
+    const ungroupedProducts = await prisma.product.findMany({
+      where: {
+        businessId: business.id,
+        status: "ACTIVE",
+        categoryId: null,
+      },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    // Formatear respuesta con secciones
+    const formattedCategories = categories.map((cat) => ({
       id: cat.id,
       name: cat.name,
       imageUrl: cat.imageUrl,
       sortOrder: cat.sortOrder,
-      products: business.products.filter((p) => p.categoryId === cat.id),
+      // ✨ NUEVO: incluir secciones
+      sections: cat.sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        sortOrder: section.sortOrder,
+        products: section.products,
+      })),
+      // Productos sin sección de esta categoría
+      products: cat.products,
     }));
-
-    const ungroupedProducts = business.products.filter(
-      (p) => !p.categoryId
-    );
 
     res.json({
       business: {
@@ -84,7 +127,7 @@ router.get("/:slug", async (req, res) => {
         whatsapp: business.whatsapp,
         address: business.address,
       },
-      categories,
+      categories: formattedCategories,
       ungroupedProducts,
     });
   } catch (error) {

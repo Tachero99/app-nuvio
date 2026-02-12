@@ -533,6 +533,7 @@ export async function confirmImportProducts(req, res) {
 
     const results = {
       categoriesCreated: 0,
+      sectionsCreated: 0,  // ✨ NUEVO
       productsCreated: 0,
       productsUpdated: 0,
     };
@@ -559,8 +560,52 @@ export async function confirmImportProducts(req, res) {
           results.categoriesCreated++;
         }
 
+        // ✨ NUEVO: Cache de secciones por categoría
+        const sectionCache = new Map();
+
         // Por cada producto de esta categoría
         for (const prod of products) {
+          // ✨ NUEVO: Buscar o crear sección si viene
+          let sectionId = null;
+          if (prod.sectionName && prod.sectionName.trim() !== "") {
+            const sectionNameLower = prod.sectionName.toLowerCase();
+            const cacheKey = `${categoryId}-${sectionNameLower}`;
+
+            // Verificar cache
+            if (sectionCache.has(cacheKey)) {
+              sectionId = sectionCache.get(cacheKey);
+            } else {
+              // Buscar sección existente
+              let section = await tx.section.findFirst({
+                where: {
+                  businessId,
+                  categoryId,
+                  name: {
+                    equals: prod.sectionName,
+                    mode: "insensitive",
+                  },
+                },
+              });
+
+              // Si no existe, crearla
+              if (!section) {
+                section = await tx.section.create({
+                  data: {
+                    businessId,
+                    categoryId,
+                    name: prod.sectionName,
+                    sortOrder: 0,
+                    isActive: true,
+                  },
+                });
+                results.sectionsCreated++;
+              }
+
+              sectionId = section.id;
+              sectionCache.set(cacheKey, sectionId);
+            }
+          }
+
           // Verificar si el producto ya existe (por nombre y categoría)
           const existing = await tx.product.findFirst({
             where: {
@@ -571,23 +616,31 @@ export async function confirmImportProducts(req, res) {
           });
 
           if (existing) {
-            // Actualizar solo el precio si viene
+            // Actualizar precio y sección si viene
+            const updateData = {
+              description: prod.description || existing.description,
+            };
+            
             if (prod.price !== null) {
-              await tx.product.update({
-                where: { id: existing.id },
-                data: {
-                  price: toDecimal(prod.price),
-                  description: prod.description || existing.description,
-                },
-              });
-              results.productsUpdated++;
+              updateData.price = toDecimal(prod.price);
             }
+            
+            if (sectionId !== null) {
+              updateData.sectionId = sectionId;
+            }
+
+            await tx.product.update({
+              where: { id: existing.id },
+              data: updateData,
+            });
+            results.productsUpdated++;
           } else {
-            // Crear producto nuevo
+            // ✨ Crear producto nuevo con sección
             await tx.product.create({
               data: {
                 businessId,
                 categoryId,
+                sectionId,  // ✨ NUEVO
                 name: prod.productName,
                 price: prod.price !== null ? toDecimal(prod.price) : toDecimal(0),
                 description: prod.description,
@@ -610,3 +663,29 @@ export async function confirmImportProducts(req, res) {
     return res.status(500).json({ message: "Error confirmando importación" });
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

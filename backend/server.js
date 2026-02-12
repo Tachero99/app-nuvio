@@ -11,6 +11,7 @@ import categoryRoutes from "./routes/category.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import sectionRoutes from "./routes/section.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,6 +44,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api", sectionRoutes);
 
 // ABM
 app.use("/api", categoryRoutes);

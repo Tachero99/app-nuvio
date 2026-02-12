@@ -444,3 +444,56 @@ export type ShareInfo = {
 export async function getMyShareInfo(): Promise<ShareInfo> {
   return apiFetch<ShareInfo>("/api/business/me/share");
 }
+
+
+
+// Tipo Section
+export type Section = {
+  id: number;
+  name: string;
+  categoryId: number;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+// Listar secciones de una categoría
+export async function listSections(categoryId: number): Promise<Section[]> {
+  const business = await ensureBusinessCtx();
+  const raw = await apiFetch<{ sections: Section[] }>(
+    `/api/business/${business.id}/categories/${categoryId}/sections`
+  );
+  return raw.sections;
+}
+
+// Crear sección
+export async function createSection(
+  categoryId: number,
+  input: { name: string; sortOrder?: number }
+): Promise<Section> {
+  const business = await ensureBusinessCtx();
+  const raw = await apiFetch<{ section: Section }>(
+    `/api/business/${business.id}/categories/${categoryId}/sections`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    }
+  );
+  return raw.section;
+}
+
+// Actualizar sección
+export async function updateSection(
+  sectionId: number,
+  input: Partial<Pick<Section, "name" | "sortOrder" | "isActive">>
+): Promise<Section> {
+  const raw = await apiFetch<{ section: Section }>(`/api/sections/${sectionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+  return raw.section;
+}
+
+// Eliminar sección
+export async function deleteSection(sectionId: number): Promise<void> {
+  await apiFetch<void>(`/api/sections/${sectionId}`, { method: "DELETE" });
+}

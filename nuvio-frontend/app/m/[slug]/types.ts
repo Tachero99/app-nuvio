@@ -10,6 +10,15 @@ export type MenuProduct = {
   imageUrl?: string | null;
   sortOrder?: number | null;
   categoryId?: number | null;
+  sectionId?: number | null; // ✨ NUEVO
+};
+
+// ✨ NUEVO: Tipo Section
+export type MenuSection = {
+  id: number;
+  name: string;
+  sortOrder: number;
+  products: MenuProduct[];
 };
 
 export type MenuCategory = {
@@ -17,7 +26,8 @@ export type MenuCategory = {
   name: string;
   imageUrl?: string | null;
   sortOrder?: number | null;
-  products: MenuProduct[];
+  sections?: MenuSection[]; // ✨ NUEVO: secciones dentro de la categoría
+  products: MenuProduct[]; // Productos sin sección
 };
 
 export type MenuBusiness = {
@@ -27,8 +37,6 @@ export type MenuBusiness = {
   whatsapp?: string | null;
   slug?: string | null;
 };
-
-
 
 export type MenuResponse = {
   business: {

@@ -254,6 +254,11 @@ export default function PublicMenuClient({
           {categories.map((cat) => {
             const isOpen = open[cat.id] === true;
             const catImgSrc = resolveMediaUrl(cat.imageUrl);
+            
+            // ✨ Contar total de productos (secciones + sin sección)
+            const totalProducts = 
+              (cat.sections?.reduce((sum, s) => sum + s.products.length, 0) ?? 0) +
+              (cat.products?.length ?? 0);
 
             return (
               <section
@@ -279,22 +284,56 @@ export default function PublicMenuClient({
                   </div>
 
                   <span className="text-xs text-slate-400">
-                    {isOpen ? "Ocultar" : "Mostrar"} · {cat.products.length}
+                    {isOpen ? "Ocultar" : "Mostrar"} · {totalProducts}
                   </span>
                 </button>
 
                 {isOpen ? (
-                  <ul className="divide-y divide-slate-800">
-                    {cat.products.map((p) => (
-                      <ProductRow
-                        key={p.id}
-                        p={p}
-                        waBase={waBase}
-                        businessName={business.name}
-                        categoryName={cat.name}
-                      />
-                    ))}
-                  </ul>
+                  <div>
+                    {/* ✨ NUEVO: Renderizar secciones */}
+                    {cat.sections && cat.sections.length > 0 && (
+                      <div>
+                        {cat.sections.map((section) => (
+                          <div key={section.id}>
+                            {/* Título de la sección */}
+                            <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-800">
+                              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+                                {section.name}
+                              </h3>
+                            </div>
+                            
+                            {/* Productos de la sección */}
+                            <ul className="divide-y divide-slate-800">
+                              {section.products.map((p) => (
+                                <ProductRow
+                                  key={p.id}
+                                  p={p}
+                                  waBase={waBase}
+                                  businessName={business.name}
+                                  categoryName={cat.name}
+                                />
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Productos sin sección */}
+                    {cat.products && cat.products.length > 0 && (
+                      <ul className="divide-y divide-slate-800">
+                        {cat.products.map((p) => (
+                          <ProductRow
+                            key={p.id}
+                            p={p}
+                            waBase={waBase}
+                            businessName={business.name}
+                            categoryName={cat.name}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 ) : null}
               </section>
             );
