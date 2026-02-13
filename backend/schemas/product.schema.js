@@ -29,6 +29,7 @@ export const productCreateSchema = z.object({
   price: numberField(0, 1_000_000_000).nullable(), // permite null
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   categoryId: intField(1, 1_000_000_000).nullable().optional(),
+  sectionId: intField(1, 1_000_000_000).nullable().optional(),
   description: z.string().trim().max(1000).nullable().optional(),
   imageUrl: z.string().trim().url("imageUrl debe ser URL válida").nullable().optional(),
   sortOrder: intField(0, 10000).optional(),
@@ -39,6 +40,7 @@ export const productUpdateSchema = z.object({
   price: numberField(0, 1_000_000_000).nullable().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   categoryId: intField(1, 1_000_000_000).nullable().optional(),
+  sectionId: intField(1, 1_000_000_000).nullable().optional(),
   description: z.string().trim().max(1000).nullable().optional(),
   imageUrl: z.string().trim().url("imageUrl debe ser URL válida").nullable().optional(),
   sortOrder: intField(0, 10000).optional(),

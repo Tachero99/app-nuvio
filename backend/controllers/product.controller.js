@@ -47,6 +47,7 @@ export async function createProduct(req, res) {
       sortOrder,
       status,
       categoryId,
+      sectionId,
       imageUrl,
     } = req.body;
 
@@ -69,6 +70,7 @@ export async function createProduct(req, res) {
         sortOrder: typeof sortOrder === "number" ? sortOrder : 0,
         status: status ?? "ACTIVE",
         categoryId: categoryId ? Number(categoryId) : null,
+        sectionId: sectionId ? Number(sectionId) : null,
         imageUrl: imageUrl ?? null,
       },
     });
@@ -121,6 +123,7 @@ export async function updateProduct(req, res) {
       sortOrder,
       status,
       categoryId,
+      sectionId,
       imageUrl,
     } = req.body;
 
@@ -143,6 +146,17 @@ export async function updateProduct(req, res) {
 
     if (parsedCategoryId !== undefined && parsedCategoryId !== null && Number.isNaN(parsedCategoryId)) {
       return res.status(400).json({ message: "categoryId inválido" });
+    }
+
+    const parsedSectionId =
+      sectionId === undefined
+        ? undefined
+        : sectionId === null || sectionId === ""
+          ? null
+          : Number(sectionId);
+
+    if (parsedSectionId !== undefined && parsedSectionId !== null && Number.isNaN(parsedSectionId)) {
+      return res.status(400).json({ message: "sectionId inválido" });
     }
 
     const product = await prisma.product.update({
@@ -168,6 +182,8 @@ export async function updateProduct(req, res) {
         status: status === undefined ? undefined : status,
 
         categoryId: parsedCategoryId,
+
+        sectionId: parsedSectionId,
 
         imageUrl: imageUrl === undefined ? undefined : (String(imageUrl).trim() || null),
       },

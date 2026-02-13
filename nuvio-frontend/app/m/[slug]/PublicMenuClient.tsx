@@ -255,10 +255,10 @@ export default function PublicMenuClient({
             const isOpen = open[cat.id] === true;
             const catImgSrc = resolveMediaUrl(cat.imageUrl);
             
-            // ✨ Contar total de productos (secciones + sin sección)
-            const totalProducts = 
-              (cat.sections?.reduce((sum, s) => sum + s.products.length, 0) ?? 0) +
-              (cat.products?.length ?? 0);
+            // Contar total de productos
+            const sectionsProductCount = cat.sections?.reduce((sum, s) => sum + (s.products?.length || 0), 0) || 0;
+            const directProductCount = cat.products?.length || 0;
+            const totalProducts = sectionsProductCount + directProductCount;
 
             return (
               <section
@@ -290,30 +290,33 @@ export default function PublicMenuClient({
 
                 {isOpen ? (
                   <div>
-                    {/* ✨ NUEVO: Renderizar secciones */}
+                    {/* Renderizar secciones */}
                     {cat.sections && cat.sections.length > 0 && (
                       <div>
                         {cat.sections.map((section) => (
                           <div key={section.id}>
-                            {/* Título de la sección */}
-                            <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-800">
-                              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+                            <div className="px-4 py-3 bg-slate-800/50 border-b border-slate-700">
+                              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
                                 {section.name}
                               </h3>
                             </div>
-                            
-                            {/* Productos de la sección */}
-                            <ul className="divide-y divide-slate-800">
-                              {section.products.map((p) => (
-                                <ProductRow
-                                  key={p.id}
-                                  p={p}
-                                  waBase={waBase}
-                                  businessName={business.name}
-                                  categoryName={cat.name}
-                                />
-                              ))}
-                            </ul>
+                            {section.products && section.products.length > 0 ? (
+                              <ul className="divide-y divide-slate-800">
+                                {section.products.map((p) => (
+                                  <ProductRow
+                                    key={p.id}
+                                    p={p}
+                                    waBase={waBase}
+                                    businessName={business.name}
+                                    categoryName={cat.name}
+                                  />
+                                ))}
+                              </ul>
+                            ) : (
+                              <div className="px-4 py-4 text-sm text-slate-500">
+                                Sin productos en esta sección
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -321,17 +324,26 @@ export default function PublicMenuClient({
 
                     {/* Productos sin sección */}
                     {cat.products && cat.products.length > 0 && (
-                      <ul className="divide-y divide-slate-800">
-                        {cat.products.map((p) => (
-                          <ProductRow
-                            key={p.id}
-                            p={p}
-                            waBase={waBase}
-                            businessName={business.name}
-                            categoryName={cat.name}
-                          />
-                        ))}
-                      </ul>
+                      <>
+                        {cat.sections && cat.sections.length > 0 && (
+                          <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-700 border-t">
+                            <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+                              Sin sección
+                            </h3>
+                          </div>
+                        )}
+                        <ul className="divide-y divide-slate-800">
+                          {cat.products.map((p) => (
+                            <ProductRow
+                              key={p.id}
+                              p={p}
+                              waBase={waBase}
+                              businessName={business.name}
+                              categoryName={cat.name}
+                            />
+                          ))}
+                        </ul>
+                      </>
                     )}
                   </div>
                 ) : null}

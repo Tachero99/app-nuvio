@@ -19,6 +19,8 @@ import {
   updateProduct,
   deleteProduct,
   type Product,
+  listSections,
+  type Section,
 } from "@/lib/api";
 
 import Swal from "sweetalert2";
@@ -54,19 +56,28 @@ export default function ProductsPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
+  // ✨ NUEVO: Secciones para crear
+  const [newSections, setNewSections] = useState<Section[]>([]);
+  const [loadingSections, setLoadingSections] = useState(false);
+
   // crear
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState<string>("");
   const [newCategoryId, setNewCategoryId] = useState<string>("");
+  const [newSectionId, setNewSectionId] = useState<string>(""); // ✨ NUEVO
   const [newDescription, setNewDescription] = useState<string>("");
   const [newSortOrder, setNewSortOrder] = useState<string>("0");
   const [newImageUrl, setNewImageUrl] = useState<string>("");
+
+  // ✨ NUEVO: Secciones para editar
+  const [editSections, setEditSections] = useState<Section[]>([]);
 
   // edición (inline)
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
+  const [editSectionId, setEditSectionId] = useState<string>(""); // ✨ NUEVO
   const [editDescription, setEditDescription] = useState<string>("");
   const [editSortOrder, setEditSortOrder] = useState<string>("0");
   const [editImageUrl, setEditImageUrl] = useState<string>("");
@@ -81,7 +92,6 @@ export default function ProductsPage() {
       const u = JSON.parse(raw) as StoredUser;
       setUser(u);
 
-      // si es superadmin, lo sacamos del panel cliente
       if (u?.role === "SUPERADMIN") router.replace("/admin");
     } catch {
       router.replace("/login");
@@ -96,6 +106,54 @@ export default function ProductsPage() {
     localStorage.removeItem("nuvio_business_name");
     router.push("/login");
   };
+
+  // ✨ NUEVO: Cargar secciones cuando cambia la categoría (crear)
+  useEffect(() => {
+    if (!newCategoryId || newCategoryId === "") {
+      setNewSections([]);
+      setNewSectionId("");
+      return;
+    }
+
+    const categoryId = Number(newCategoryId);
+    if (isNaN(categoryId)) return;
+
+    setLoadingSections(true);
+    listSections(categoryId)
+      .then((sections) => {
+        setNewSections(sections);
+        setNewSectionId(""); // Reset sección seleccionada
+      })
+      .catch((err) => {
+        console.error("Error cargando secciones:", err);
+        setNewSections([]);
+      })
+      .finally(() => setLoadingSections(false));
+  }, [newCategoryId]);
+
+  // ✨ NUEVO: Cargar secciones cuando cambia la categoría (editar)
+  useEffect(() => {
+    if (!editCategoryId || editCategoryId === "") {
+      setEditSections([]);
+      setEditSectionId("");
+      return;
+    }
+
+    const categoryId = Number(editCategoryId);
+    if (isNaN(categoryId)) return;
+
+    setLoadingSections(true);
+    listSections(categoryId)
+      .then((sections) => {
+        setEditSections(sections);
+        // No resetear editSectionId aquí porque estamos editando
+      })
+      .catch((err) => {
+        console.error("Error cargando secciones:", err);
+        setEditSections([]);
+      })
+      .finally(() => setLoadingSections(false));
+  }, [editCategoryId]);
 
   async function refresh() {
     try {
@@ -171,6 +229,10 @@ export default function ProductsPage() {
     const catId = newCategoryId.trim() === "" ? null : Number(newCategoryId);
     if (newCategoryId.trim() !== "" && Number.isNaN(catId as any)) return notify.error("Categoría inválida.");
 
+    // ✨ NUEVO: sectionId
+    const secId = newSectionId.trim() === "" ? null : Number(newSectionId);
+    if (newSectionId.trim() !== "" && Number.isNaN(secId as any)) return notify.error("Sección inválida.");
+
     try {
       setLoading(true);
       setError(null);
@@ -179,6 +241,7 @@ export default function ProductsPage() {
         name,
         price: priceNum,
         categoryId: catId,
+        sectionId: secId, // ✨ NUEVO
         description: newDescription.trim() ? newDescription.trim() : null,
         sortOrder: sortOrderNum,
         imageUrl: newImageUrl.trim() ? newImageUrl.trim() : null,
@@ -187,6 +250,7 @@ export default function ProductsPage() {
       setNewName("");
       setNewPrice("");
       setNewCategoryId("");
+      setNewSectionId(""); // ✨ NUEVO
       setNewDescription("");
       setNewSortOrder("0");
       setNewImageUrl("");
@@ -208,6 +272,7 @@ export default function ProductsPage() {
     setEditName(p.name);
     setEditPrice(p.price == null ? "" : String(p.price));
     setEditCategoryId(p.categoryId == null ? "" : String(p.categoryId));
+    setEditSectionId((p as any).sectionId == null ? "" : String((p as any).sectionId)); // ✨ NUEVO
     setEditDescription(p.description ?? "");
     setEditSortOrder(p.sortOrder == null ? "0" : String(p.sortOrder));
     setEditImageUrl((p.imageUrl as any) ?? "");
@@ -218,6 +283,7 @@ export default function ProductsPage() {
     setEditName("");
     setEditPrice("");
     setEditCategoryId("");
+    setEditSectionId(""); // ✨ NUEVO
     setEditDescription("");
     setEditSortOrder("0");
     setEditImageUrl("");
@@ -236,6 +302,10 @@ export default function ProductsPage() {
     const catId = editCategoryId.trim() === "" ? null : Number(editCategoryId);
     if (editCategoryId.trim() !== "" && Number.isNaN(catId as any)) return notify.error("Categoría inválida.");
 
+    // ✨ NUEVO: sectionId
+    const secId = editSectionId.trim() === "" ? null : Number(editSectionId);
+    if (editSectionId.trim() !== "" && Number.isNaN(secId as any)) return notify.error("Sección inválida.");
+
     try {
       setLoading(true);
       setError(null);
@@ -244,6 +314,7 @@ export default function ProductsPage() {
         name,
         price: priceNum,
         categoryId: catId,
+        sectionId: secId, // ✨ NUEVO
         description: editDescription.trim() ? editDescription.trim() : null,
         sortOrder: sortOrderNum,
         imageUrl: editImageUrl.trim() ? editImageUrl.trim() : null,
@@ -269,7 +340,6 @@ export default function ProductsPage() {
 
       const next = p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
-      // opcional: cuando activás, mandalo al final de los activos
       const maxActive = Math.max(0, ...products.filter((x) => x.status === "ACTIVE").map((x) => x.sortOrder ?? 0));
 
       await updateProduct(p.id, {
@@ -277,7 +347,6 @@ export default function ProductsPage() {
         sortOrder: next === "ACTIVE" ? maxActive + 1 : p.sortOrder,
       } as any);
 
-      // optimista
       setProducts((prev) =>
         prev.map((x) =>
           x.id === p.id ? { ...x, status: next, sortOrder: next === "ACTIVE" ? maxActive + 1 : x.sortOrder } : x
@@ -313,7 +382,6 @@ export default function ProductsPage() {
 
       await deleteProduct(p.id);
 
-      // optimista
       setProducts((prev) => prev.filter((x) => x.id !== p.id));
 
       notify.success("Producto eliminado ✅");
@@ -329,7 +397,6 @@ export default function ProductsPage() {
   async function persistProductOrder(next: Product[]) {
     const normalized = next.map((p, idx) => ({ ...p, sortOrder: idx }));
 
-    // optimistic
     setProducts((prev) =>
       prev.map((p) => {
         const found = normalized.find((x) => x.id === p.id);
@@ -465,6 +532,26 @@ export default function ProductsPage() {
               </select>
             </div>
 
+            {/* ✨ NUEVO: Dropdown de secciones */}
+            {newCategoryId && newCategoryId !== "" && (
+              <div className="md:col-span-3">
+                <label className="block text-sm text-slate-300 mb-1">Sección</label>
+                <select
+                  value={newSectionId}
+                  onChange={(e) => setNewSectionId(e.target.value)}
+                  disabled={loadingSections}
+                  className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-50"
+                >
+                  <option value="">(sin sección)</option>
+                  {newSections.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="md:col-span-1">
               <label className="block text-sm text-slate-300 mb-1">Orden</label>
               <input
@@ -517,7 +604,7 @@ export default function ProductsPage() {
           <Card>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100">Activos ({activeList.length})</h2>
-              <p className="text-xs text-slate-400">Arrastrá “≡” para reordenar.</p>
+              <p className="text-xs text-slate-400">Arrastrá "≡" para reordenar.</p>
             </div>
 
             {activeList.length === 0 ? (
@@ -541,6 +628,8 @@ export default function ProductsPage() {
                     categories={categories}
                     editing={editingId === p.id}
                     loading={loading}
+                    loadingSections={loadingSections}
+                    editSections={editSections} // ✨ NUEVO
                     onStartEdit={startEdit}
                     onCancelEdit={cancelEdit}
                     onSaveEdit={saveEdit}
@@ -553,6 +642,8 @@ export default function ProductsPage() {
                       setEditPrice,
                       editCategoryId,
                       setEditCategoryId,
+                      editSectionId, // ✨ NUEVO
+                      setEditSectionId, // ✨ NUEVO
                       editDescription,
                       setEditDescription,
                       editSortOrder,
@@ -571,7 +662,7 @@ export default function ProductsPage() {
           <Card>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100">Inactivos ({inactiveList.length})</h2>
-              <p className="text-xs text-slate-400">Arrastrá “≡” para reordenar.</p>
+              <p className="text-xs text-slate-400">Arrastrá "≡" para reordenar.</p>
             </div>
 
             {inactiveList.length === 0 ? (
@@ -595,6 +686,8 @@ export default function ProductsPage() {
                     categories={categories}
                     editing={editingId === p.id}
                     loading={loading}
+                    loadingSections={loadingSections}
+                    editSections={editSections} // ✨ NUEVO
                     onStartEdit={startEdit}
                     onCancelEdit={cancelEdit}
                     onSaveEdit={saveEdit}
@@ -607,6 +700,8 @@ export default function ProductsPage() {
                       setEditPrice,
                       editCategoryId,
                       setEditCategoryId,
+                      editSectionId, // ✨ NUEVO
+                      setEditSectionId, // ✨ NUEVO
                       editDescription,
                       setEditDescription,
                       editSortOrder,
@@ -633,6 +728,8 @@ function ProductRow({
   categories,
   editing,
   loading,
+  loadingSections,
+  editSections,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -647,6 +744,8 @@ function ProductRow({
   categories: Category[];
   editing: boolean;
   loading: boolean;
+  loadingSections: boolean;
+  editSections: Section[];
   onStartEdit: (p: Product) => void;
   onCancelEdit: () => void;
   onSaveEdit: (id: number) => void;
@@ -659,6 +758,8 @@ function ProductRow({
     setEditPrice: (v: string) => void;
     editCategoryId: string;
     setEditCategoryId: (v: string) => void;
+    editSectionId: string; // ✨ NUEVO
+    setEditSectionId: (v: string) => void; // ✨ NUEVO
     editDescription: string;
     setEditDescription: (v: string) => void;
     editSortOrder: string;
@@ -683,6 +784,8 @@ function ProductRow({
     setEditPrice,
     editCategoryId,
     setEditCategoryId,
+    editSectionId,
+    setEditSectionId,
     editDescription,
     setEditDescription,
     editSortOrder,
@@ -795,6 +898,26 @@ function ProductRow({
                   ))}
               </select>
             </div>
+
+            {/* ✨ NUEVO: Dropdown de secciones al editar */}
+            {editCategoryId && editCategoryId !== "" && (
+              <div className="md:col-span-3">
+                <label className="block text-xs text-slate-400 mb-1">Sección</label>
+                <select
+                  value={editSectionId}
+                  onChange={(e) => setEditSectionId(e.target.value)}
+                  disabled={loadingSections}
+                  className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-50"
+                >
+                  <option value="">(sin sección)</option>
+                  {editSections.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="md:col-span-1">
               <label className="block text-xs text-slate-400 mb-1">Orden</label>
