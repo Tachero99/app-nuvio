@@ -484,6 +484,12 @@ export default function DashboardPage() {
                 Editor Masivo
               </Link>
 
+              <Link href="/dashboard/qr">
+                <button className="rounded-lg bg-purple-600 hover:bg-purple-500 px-4 py-2 text-sm font-medium text-white">
+                  📱 Ver QR personalizado
+                </button>
+              </Link>
+
               <Link
                 href="/dashboard/settings"
                 className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
