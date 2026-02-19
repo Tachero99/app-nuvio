@@ -1,4 +1,4 @@
-// prisma/schema.prisma - ACTUALIZADO CON SECTIONS
+// prisma/schema.prisma - CORREGIDO
 
 datasource db {
   provider = "postgresql"
@@ -50,10 +50,13 @@ model Business {
   updatedAt DateTime @default(now()) @updatedAt
 
   categories Category[]
-  sections   Section[]   // ✨ NUEVO
+  sections   Section[]
   products   Product[]
-
-  orders Order[]
+  orders     Order[]
+  
+  // ✨ Relaciones de analytics
+  menuViews     MenuView[]
+  productClicks ProductClick[]
 }
 
 model Category {
@@ -69,11 +72,10 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  sections Section[]  // ✨ NUEVO: una categoría puede tener múltiples secciones
+  sections Section[]
   products Product[]
 }
 
-// ✨ NUEVO MODELO
 model Section {
   id         Int      @id @default(autoincrement())
   business   Business @relation(fields: [businessId], references: [id])
@@ -99,8 +101,8 @@ model Product {
   businessId  Int
   category    Category?     @relation(fields: [categoryId], references: [id])
   categoryId  Int?
-  section     Section?      @relation(fields: [sectionId], references: [id])  // ✨ NUEVO
-  sectionId   Int?          // ✨ NUEVO
+  section     Section?      @relation(fields: [sectionId], references: [id])
+  sectionId   Int?
   
   name        String
   price       Decimal
@@ -114,9 +116,12 @@ model Product {
   updatedAt   DateTime      @default(now()) @updatedAt
 
   orderItems OrderItem[]
+  
+  // ✨ Relación inversa para analytics
+  clicks ProductClick[]
 
   @@index([categoryId])
-  @@index([sectionId])  // ✨ NUEVO
+  @@index([sectionId])
 }
 
 enum OrderStatus {
@@ -146,4 +151,43 @@ model OrderItem {
 
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
+}
+
+// ✨ Analytics de visitas al menú
+model MenuView {
+  id         Int      @id @default(autoincrement())
+  businessId Int
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  // Metadata
+  userAgent  String?  @db.Text
+  ipAddress  String?  @db.VarChar(45)
+  referer    String?  @db.Text
+  
+  viewedAt   DateTime @default(now())
+  
+  @@index([businessId])
+  @@index([viewedAt])
+  @@map("menu_views")
+}
+
+// ✨ Analytics de clicks en WhatsApp por producto
+model ProductClick {
+  id         Int      @id @default(autoincrement())
+  businessId Int
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  productId  Int?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  
+  // Metadata
+  userAgent  String?  @db.Text
+  ipAddress  String?  @db.VarChar(45)
+  
+  clickedAt  DateTime @default(now())
+  
+  @@index([businessId])
+  @@index([productId])
+  @@index([clickedAt])
+  @@map("product_clicks")
 }

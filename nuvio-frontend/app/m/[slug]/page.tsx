@@ -2,6 +2,7 @@
 import { waChatLink } from "@/lib/share";
 import PublicMenuClient from "./PublicMenuClient";
 import type { MenuCategory, MenuProduct, MenuResponse, MenuSection } from "./types";
+import { useMenuViewTracking } from "@/lib/useAnalytics";
 
 function num(v: any, fallback = 0) {
   const n = Number(v);

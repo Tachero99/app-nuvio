@@ -478,10 +478,16 @@ export default function DashboardPage() {
                 ABM Productos
               </Link>
 
+
               <Link 
-                href="/dashboard/products/editor"
+                href="/dashboard/products/bulk"
                 className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
                 Editor Masivo
+              </Link>
+
+              <Link href="/dashboard/analytics"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                📊 Analytics
               </Link>
 
               <Link href="/dashboard/qr">

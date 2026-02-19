@@ -2,6 +2,8 @@
 import prisma from "../prismaClient.js";
 import { Prisma } from "@prisma/client";
 import xlsx from "xlsx";
+import { validateExcelSafety } from "../middlewares/excelValidator.js";
+
 
 async function assertCanAccessBusiness(req, businessId) {
   const role = req.user?.role;
@@ -381,7 +383,7 @@ export async function updateProductsBulk(req, res) {
   }
 }
 
-// ✨ POST /api/business/:businessId/products/import
+// ✨ POST /api/business/:businessId/products/import - CON SEGURIDAD
 export async function importProductsFromExcel(req, res) {
   try {
     const businessId = Number(req.params.businessId);
@@ -394,8 +396,9 @@ export async function importProductsFromExcel(req, res) {
       return res.status(400).json({ message: "No se subió ningún archivo" });
     }
 
-    // Leer el archivo Excel
-    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    // ✅ VALIDAR SEGURIDAD DEL EXCEL
+    const { workbook } = validateExcelSafety(req.file.buffer);
+
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
@@ -404,6 +407,14 @@ export async function importProductsFromExcel(req, res) {
 
     if (rows.length === 0) {
       return res.status(400).json({ message: "El archivo está vacío" });
+    }
+
+    // ✅ LÍMITE DE FILAS EN PREVIEW
+    const MAX_PREVIEW_ROWS = 1000;
+    if (rows.length > MAX_PREVIEW_ROWS) {
+      return res.status(400).json({ 
+        message: `Demasiadas filas. Máximo ${MAX_PREVIEW_ROWS} productos por importación` 
+      });
     }
 
     // Validar y procesar filas
@@ -510,11 +521,13 @@ export async function importProductsFromExcel(req, res) {
     });
   } catch (e) {
     console.error("importProductsFromExcel:", e);
-    return res.status(500).json({ message: "Error procesando archivo Excel" });
+    return res.status(500).json({ 
+      message: e.message || "Error procesando archivo Excel" 
+    });
   }
 }
 
-// ✨ POST /api/business/:businessId/products/import/confirm
+// ✨ POST /api/business/:businessId/products/import/confirm - CON LÍMITE
 export async function confirmImportProducts(req, res) {
   try {
     const businessId = Number(req.params.businessId);
@@ -523,6 +536,13 @@ export async function confirmImportProducts(req, res) {
     if (!businessId) return res.status(400).json({ message: "businessId inválido" });
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ message: "No hay filas para importar" });
+    }
+
+    // ✅ VALIDAR CANTIDAD DE PRODUCTOS
+    if (rows.length > 1000) {
+      return res.status(400).json({ 
+        message: "No se pueden importar más de 1000 productos a la vez" 
+      });
     }
 
     await assertCanAccessBusiness(req, businessId);
@@ -549,7 +569,7 @@ export async function confirmImportProducts(req, res) {
 
     const results = {
       categoriesCreated: 0,
-      sectionsCreated: 0,  // ✨ NUEVO
+      sectionsCreated: 0,
       productsCreated: 0,
       productsUpdated: 0,
     };
@@ -576,12 +596,12 @@ export async function confirmImportProducts(req, res) {
           results.categoriesCreated++;
         }
 
-        // ✨ NUEVO: Cache de secciones por categoría
+        // Cache de secciones por categoría
         const sectionCache = new Map();
 
         // Por cada producto de esta categoría
         for (const prod of products) {
-          // ✨ NUEVO: Buscar o crear sección si viene
+          // Buscar o crear sección si viene
           let sectionId = null;
           if (prod.sectionName && prod.sectionName.trim() !== "") {
             const sectionNameLower = prod.sectionName.toLowerCase();
@@ -651,12 +671,12 @@ export async function confirmImportProducts(req, res) {
             });
             results.productsUpdated++;
           } else {
-            // ✨ Crear producto nuevo con sección
+            // Crear producto nuevo con sección
             await tx.product.create({
               data: {
                 businessId,
                 categoryId,
-                sectionId,  // ✨ NUEVO
+                sectionId,
                 name: prod.productName,
                 price: prod.price !== null ? toDecimal(prod.price) : toDecimal(0),
                 description: prod.description,
@@ -676,32 +696,8 @@ export async function confirmImportProducts(req, res) {
     });
   } catch (e) {
     console.error("confirmImportProducts:", e);
-    return res.status(500).json({ message: "Error confirmando importación" });
+    return res.status(500).json({ 
+      message: e.message || "Error confirmando importación" 
+    });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

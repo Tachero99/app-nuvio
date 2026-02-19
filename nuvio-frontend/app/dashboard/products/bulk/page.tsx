@@ -22,7 +22,7 @@ type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
 type SortField = "name" | "price" | "stock" | "sortOrder";
 type SortOrder = "asc" | "desc";
 
-export default function ProductEditorPage() {
+export default function BulkEditorPage() {
   const router = useRouter();
 
   // Auth
@@ -43,6 +43,11 @@ export default function ProductEditorPage() {
   // Selección múltiple
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // Modales de acciones masivas
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [modalValue, setModalValue] = useState("");
+
   // Panel lateral (edición individual)
   const [editingProduct, setEditingProduct] = useState<ProductWithCategory | null>(null);
   const [editForm, setEditForm] = useState({
@@ -56,10 +61,6 @@ export default function ProductEditorPage() {
     imageUrl: "",
     sortOrder: "",
   });
-
-  // Bulk actions
-  const [bulkAction, setBulkAction] = useState<"status" | "category" | "price-increase" | "">("");
-  const [bulkValue, setBulkValue] = useState("");
 
   // Auth check
   useEffect(() => {
@@ -192,38 +193,12 @@ export default function ProductEditorPage() {
     }
   };
 
-  const handleBulkAction = async () => {
-    if (selectedIds.size === 0) return notify.error("Seleccioná al menos un producto");
-    if (!bulkAction) return notify.error("Seleccioná una acción");
-
-    try {
-      const updates = Array.from(selectedIds).map((id) => {
-        const update: any = { id };
-
-        if (bulkAction === "status") {
-          update.status = bulkValue as "ACTIVE" | "INACTIVE";
-        } else if (bulkAction === "category") {
-          update.categoryId = bulkValue ? Number(bulkValue) : null;
-        } else if (bulkAction === "price-increase") {
-          const product = products.find((p) => p.id === id);
-          if (product && product.price) {
-            const currentPrice = Number(product.price);
-            const percentage = Number(bulkValue) || 0;
-            update.price = Math.round(currentPrice * (1 + percentage / 100));
-          }
-        }
-
-        return update;
-      });
-
-      const result = await updateProductsBulk(updates);
-      notify.success(result.message);
-      await loadData();
-      setSelectedIds(new Set());
-      setBulkAction("");
-      setBulkValue("");
-    } catch (err: any) {
-      notify.error(err.message || "Error en acción masiva");
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
     }
   };
 
@@ -241,7 +216,7 @@ export default function ProductEditorPage() {
       ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
       : "border-slate-700/70 bg-slate-900/60 text-slate-300";
 
-  // ✅ Design tokens (solo clases, cero lógica)
+  // Design tokens
   const card =
     "rounded-2xl border border-slate-800/80 bg-slate-950/50 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]";
   const cardPad = "p-4 md:p-5";
@@ -256,7 +231,7 @@ export default function ProductEditorPage() {
     "rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white active:scale-[0.99] transition disabled:opacity-60";
   const thBase =
     "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-300/90";
-  const tdBase = "px-4 py-3 text-sm text-slate-200";
+  const tdBase = "px-4 py-4 text-sm text-slate-200";
 
   return (
     <PageShell>
@@ -323,44 +298,16 @@ export default function ProductEditorPage() {
               </div>
             </div>
 
-            {/* Sort row */}
-            <div className="mt-4 grid gap-3 lg:grid-cols-12">
-              <div className="lg:col-span-4">
-                <label className={label}>Ordenar por</label>
-                <select
-                  value={sortField}
-                  onChange={(e) => setSortField(e.target.value as SortField)}
-                  className={selectBase}
-                >
-                  <option value="sortOrder">Orden</option>
-                  <option value="name">Nombre</option>
-                  <option value="price">Precio</option>
-                  <option value="stock">Stock</option>
-                </select>
+            {/* Stats row */}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-xs text-slate-400">
+                Mostrando{" "}
+                <span className="text-slate-100 font-semibold">{filteredProducts.length}</span> /{" "}
+                <span className="text-slate-100 font-semibold">{products.length}</span>
               </div>
 
-              <div className="lg:col-span-4">
-                <label className={label}>Dirección</label>
-                <select
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-                  className={selectBase}
-                >
-                  <option value="asc">Ascendente</option>
-                  <option value="desc">Descendente</option>
-                </select>
-              </div>
-
-              <div className="lg:col-span-4 flex items-end justify-between gap-2">
-                <div className="text-xs text-slate-400">
-                  Mostrando{" "}
-                  <span className="text-slate-100 font-semibold">{filteredProducts.length}</span> /{" "}
-                  <span className="text-slate-100 font-semibold">{products.length}</span>
-                </div>
-
-                <div className={`text-xs px-2.5 py-1 rounded-full border ${chip(selectedIds.size > 0)}`}>
-                  Seleccionados: <span className="font-semibold">{selectedIds.size}</span>
-                </div>
+              <div className={`text-xs px-2.5 py-1 rounded-full border ${chip(selectedIds.size > 0)}`}>
+                Seleccionados: <span className="font-semibold">{selectedIds.size}</span>
               </div>
             </div>
           </div>
@@ -369,62 +316,91 @@ export default function ProductEditorPage() {
         {/* Bulk Actions */}
         {selectedIds.size > 0 && (
           <div className="rounded-2xl border border-indigo-400/20 bg-indigo-500/10">
-            <div className="p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="p-4 flex items-center justify-between gap-4">
               <div className="text-sm text-indigo-100">
                 <span className="font-semibold">{selectedIds.size}</span> producto
                 {selectedIds.size > 1 ? "s" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}.
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <select
-                  value={bulkAction}
-                  onChange={(e) => {
-                    setBulkAction(e.target.value as any);
-                    setBulkValue("");
+                <button
+                  onClick={() => {
+                    setShowCategoryModal(true);
+                    setModalValue("");
                   }}
-                  className={selectBase}
+                  className={btn}
                 >
-                  <option value="">Acción masiva...</option>
-                  <option value="status">Cambiar estado</option>
-                  <option value="category">Cambiar categoría</option>
-                  <option value="price-increase">Aumentar precios (%)</option>
-                </select>
+                  Cambiar categoría
+                </button>
 
-                {bulkAction === "status" && (
-                  <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className={selectBase}>
-                    <option value="">Estado...</option>
-                    <option value="ACTIVE">Activo</option>
-                    <option value="INACTIVE">Inactivo</option>
-                  </select>
-                )}
+                <button
+                  onClick={() => {
+                    setShowPriceModal(true);
+                    setModalValue("");
+                  }}
+                  className={btn}
+                >
+                  Ajustar precios
+                </button>
 
-                {bulkAction === "category" && (
-                  <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className={selectBase}>
-                    <option value="">Categoría...</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <button
+                  onClick={async () => {
+                    try {
+                      const updates = Array.from(selectedIds).map((id) => ({
+                        id,
+                        status: "ACTIVE" as const,
+                      }));
+                      const result = await updateProductsBulk(updates);
+                      notify.success(result.message);
+                      await loadData();
+                      setSelectedIds(new Set());
+                    } catch (err: any) {
+                      notify.error(err.message || "Error activando productos");
+                    }
+                  }}
+                  className="rounded-xl border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-950/60"
+                >
+                  Activar
+                </button>
 
-                {bulkAction === "price-increase" && (
-                  <input
-                    type="number"
-                    placeholder="% (ej: 10)"
-                    value={bulkValue}
-                    onChange={(e) => setBulkValue(e.target.value)}
-                    className={`${inputBase} w-28`}
-                  />
-                )}
+                <button
+                  onClick={async () => {
+                    try {
+                      const updates = Array.from(selectedIds).map((id) => ({
+                        id,
+                        status: "INACTIVE" as const,
+                      }));
+                      const result = await updateProductsBulk(updates);
+                      notify.success(result.message);
+                      await loadData();
+                      setSelectedIds(new Set());
+                    } catch (err: any) {
+                      notify.error(err.message || "Error desactivando productos");
+                    }
+                  }}
+                  className={btn}
+                >
+                  Desactivar
+                </button>
 
-                <button onClick={handleBulkAction} disabled={!bulkAction || !bulkValue} className={btnPrimary}>
-                  Aplicar
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`¿Eliminar ${selectedIds.size} producto(s)?`)) return;
+                    
+                    try {
+                      // Necesitarías implementar deleteProductsBulk en tu API
+                      notify.error("Función eliminar no implementada aún");
+                    } catch (err: any) {
+                      notify.error(err.message || "Error eliminando productos");
+                    }
+                  }}
+                  className="rounded-xl border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-200 hover:bg-red-950/60"
+                >
+                  Eliminar
                 </button>
 
                 <button onClick={() => setSelectedIds(new Set())} className={btn}>
-                  Limpiar selección
+                  Deseleccionar
                 </button>
               </div>
             </div>
@@ -433,7 +409,6 @@ export default function ProductEditorPage() {
 
         {/* Tabla */}
         <div className={`${card} overflow-hidden`}>
-          {/* Loading */}
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-slate-700 border-t-indigo-500" />
@@ -456,7 +431,7 @@ export default function ProductEditorPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-245 w-full">
+              <table className="min-w-full w-full">
                 <thead className="bg-slate-950/70 sticky top-0 z-10 backdrop-blur border-b border-slate-800/70">
                   <tr>
                     <th className={`${thBase} w-14`}>
@@ -464,67 +439,49 @@ export default function ProductEditorPage() {
                         type="checkbox"
                         checked={allSelected}
                         onChange={toggleSelectAll}
-                        className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                        className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
                       />
                     </th>
 
                     <th
-                      className={`${thBase} cursor-pointer select-none`}
-                      onClick={() => {
-                        if (sortField === "name") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                        else {
-                          setSortField("name");
-                          setSortOrder("asc");
-                        }
-                      }}
+                      className={`${thBase} cursor-pointer select-none hover:text-indigo-300 transition-colors`}
+                      onClick={() => handleSort("name")}
                     >
                       <div className="flex items-center gap-2">
-                        Nombre
+                        NOMBRE
                         {sortField === "name" && (
-                          <span className="text-indigo-300 text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                          <span className="text-indigo-300 text-base">{sortOrder === "asc" ? "↑" : "↓"}</span>
                         )}
                       </div>
                     </th>
 
-                    <th className={thBase}>Categoría</th>
+                    <th className={thBase}>CATEGORÍA</th>
 
                     <th
-                      className={`${thBase} cursor-pointer select-none`}
-                      onClick={() => {
-                        if (sortField === "price") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                        else {
-                          setSortField("price");
-                          setSortOrder("asc");
-                        }
-                      }}
+                      className={`${thBase} cursor-pointer select-none hover:text-indigo-300 transition-colors`}
+                      onClick={() => handleSort("price")}
                     >
                       <div className="flex items-center gap-2">
-                        Precio
+                        PRECIO
                         {sortField === "price" && (
-                          <span className="text-indigo-300 text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                          <span className="text-indigo-300 text-base">{sortOrder === "asc" ? "↑" : "↓"}</span>
                         )}
                       </div>
                     </th>
 
                     <th
-                      className={`${thBase} cursor-pointer select-none`}
-                      onClick={() => {
-                        if (sortField === "stock") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                        else {
-                          setSortField("stock");
-                          setSortOrder("asc");
-                        }
-                      }}
+                      className={`${thBase} cursor-pointer select-none hover:text-indigo-300 transition-colors`}
+                      onClick={() => handleSort("stock")}
                     >
                       <div className="flex items-center gap-2">
-                        Stock
+                        STOCK
                         {sortField === "stock" && (
-                          <span className="text-indigo-300 text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                          <span className="text-indigo-300 text-base">{sortOrder === "asc" ? "↑" : "↓"}</span>
                         )}
                       </div>
                     </th>
 
-                    <th className={thBase}>Estado</th>
+                    <th className={thBase}>ESTADO</th>
                   </tr>
                 </thead>
 
@@ -540,52 +497,56 @@ export default function ProductEditorPage() {
                           type="checkbox"
                           checked={selectedIds.has(product.id)}
                           onChange={() => toggleSelect(product.id)}
-                          className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                          className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
                         />
                       </td>
 
                       <td className={tdBase}>
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-4 min-w-0">
                           {product.imageUrl ? (
                             <img
                               src={resolveMediaUrl(product.imageUrl) || ""}
                               alt={product.name}
-                              className="h-10 w-10 rounded-xl object-cover border border-slate-800"
+                              className="h-16 w-16 rounded-xl object-cover border border-slate-800 shrink-0"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-xl border border-slate-800 bg-slate-900/40" />
+                            <div className="h-16 w-16 rounded-xl border border-slate-800 bg-slate-900/40 shrink-0 flex items-center justify-center">
+                              <span className="text-2xl opacity-30">📦</span>
+                            </div>
                           )}
 
                           <div className="min-w-0">
-                            <div className="text-sm text-slate-100 font-semibold truncate">{product.name}</div>
-                            <div className="text-xs text-slate-500 font-mono">#{product.id}</div>
+                            <div className="text-base text-slate-100 font-semibold truncate">{product.name}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-1">#{product.id}</div>
                           </div>
                         </div>
                       </td>
 
                       <td className={tdBase}>
                         {product.category?.name ? (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-slate-700/70 bg-slate-900/60 text-slate-200">
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border border-slate-700/70 bg-slate-900/60 text-slate-200">
                             {product.category.name}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-500 italic">(sin categoría)</span>
+                          <span className="text-sm text-slate-500 italic">(sin categoría)</span>
                         )}
                       </td>
 
                       <td className={tdBase}>
-                        <span className="font-mono text-slate-100">
+                        <span className="font-mono text-base text-slate-100 font-semibold">
                           ${Number(product.price || 0).toLocaleString()}
                         </span>
                       </td>
 
                       <td className={tdBase}>
-                        <span className="font-mono text-slate-200">{(product as any).stock ?? "-"}</span>
+                        <span className="font-mono text-base text-slate-100 font-semibold">
+                          {(product as any).stock ?? "0"}
+                        </span>
                       </td>
 
                       <td className={tdBase}>
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full border text-xs ${statusBadge(
+                          className={`inline-flex items-center px-3 py-1.5 rounded-full border text-sm font-medium ${statusBadge(
                             product.status
                           )}`}
                         >
@@ -598,20 +559,137 @@ export default function ProductEditorPage() {
               </table>
 
               <div className="border-t border-slate-800/70 bg-slate-950/70 px-4 py-3 text-xs text-slate-400">
-                Tip: click en una fila para abrir el panel lateral de edición. ✅
+                💡 Tip: Click en columnas NOMBRE, PRECIO o STOCK para ordenar. Click en una fila para editar.
               </div>
             </div>
           )}
         </div>
       </div>
 
+      {/* Modal: Cambiar categoría */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCategoryModal(false)} />
+          
+          <div className="relative bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-slate-100 mb-4">Cambiar categoría</h3>
+            
+            <div className="mb-4">
+              <label className={label}>Nueva categoría</label>
+              <select
+                value={modalValue}
+                onChange={(e) => setModalValue(e.target.value)}
+                className={selectBase}
+                autoFocus
+              >
+                <option value="">Seleccionar...</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!modalValue) return notify.error("Seleccioná una categoría");
+                  
+                  try {
+                    const updates = Array.from(selectedIds).map((id) => ({
+                      id,
+                      categoryId: Number(modalValue),
+                    }));
+                    const result = await updateProductsBulk(updates);
+                    notify.success(result.message);
+                    await loadData();
+                    setSelectedIds(new Set());
+                    setShowCategoryModal(false);
+                    setModalValue("");
+                  } catch (err: any) {
+                    notify.error(err.message || "Error cambiando categoría");
+                  }
+                }}
+                className={btnPrimary}
+              >
+                Aplicar
+              </button>
+              <button onClick={() => setShowCategoryModal(false)} className={btn}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Ajustar precios */}
+      {showPriceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPriceModal(false)} />
+          
+          <div className="relative bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-slate-100 mb-4">Ajustar precios</h3>
+            
+            <div className="mb-4">
+              <label className={label}>Porcentaje de ajuste</label>
+              <input
+                type="number"
+                value={modalValue}
+                onChange={(e) => setModalValue(e.target.value)}
+                className={inputBase}
+                placeholder="Ejemplo: 10 para +10%, -15 para -15%"
+                autoFocus
+              />
+              <div className="mt-2 text-xs text-slate-400">
+                Valores positivos aumentan, negativos descuentan
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!modalValue) return notify.error("Ingresá un porcentaje");
+                  
+                  try {
+                    const percentage = Number(modalValue);
+                    const updates = Array.from(selectedIds).map((id) => {
+                      const product = products.find((p) => p.id === id);
+                      if (!product || !product.price) return null;
+                      
+                      const currentPrice = Number(product.price);
+                      const newPrice = Math.round(currentPrice * (1 + percentage / 100));
+                      
+                      return { id, price: Math.max(0, newPrice) };
+                    }).filter(Boolean);
+
+                    const result = await updateProductsBulk(updates as any);
+                    notify.success(result.message);
+                    await loadData();
+                    setSelectedIds(new Set());
+                    setShowPriceModal(false);
+                    setModalValue("");
+                  } catch (err: any) {
+                    notify.error(err.message || "Error ajustando precios");
+                  }
+                }}
+                className={btnPrimary}
+              >
+                Aplicar
+              </button>
+              <button onClick={() => setShowPriceModal(false)} className={btn}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Panel lateral */}
       {editingProduct && (
         <div className="fixed inset-0 z-50">
-          {/* overlay */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={closeEditPanel} />
 
-          {/* drawer */}
           <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-slate-800/80 bg-slate-950 shadow-2xl">
             <div className="h-full overflow-y-auto">
               {/* Header */}
@@ -621,20 +699,12 @@ export default function ProductEditorPage() {
                     <div className="text-lg font-semibold text-slate-100 truncate">Editar producto</div>
                     <div className="mt-1 text-xs text-slate-400">
                       ID <span className="font-mono text-slate-200">#{editingProduct.id}</span>
-                      <span
-                        className={`ml-2 inline-flex px-2 py-0.5 rounded-full border text-[11px] ${statusBadge(
-                          editForm.status
-                        )}`}
-                      >
-                        {editForm.status}
-                      </span>
                     </div>
                   </div>
 
                   <button
                     onClick={closeEditPanel}
                     className="rounded-xl border border-slate-800 bg-slate-900/70 px-2.5 py-1.5 text-slate-200 hover:bg-slate-800/60"
-                    aria-label="Cerrar"
                   >
                     ✕
                   </button>
@@ -664,9 +734,6 @@ export default function ProductEditorPage() {
                         className={inputBase}
                         placeholder="/uploads/..."
                       />
-                      <div className="mt-1 text-[11px] text-slate-500">
-                        Pegá una URL o ruta <span className="font-mono">/uploads/...</span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -717,6 +784,34 @@ export default function ProductEditorPage() {
                       </div>
 
                       <div>
+                        <label className={label}>Orden</label>
+                        <input
+                          type="number"
+                          value={editForm.sortOrder}
+                          onChange={(e) => setEditForm({ ...editForm, sortOrder: e.target.value })}
+                          className={inputBase}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={label}>Categoría</label>
+                        <select
+                          value={editForm.categoryId}
+                          onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+                          className={selectBase}
+                        >
+                          <option value="">Sin categoría</option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
                         <label className={label}>Estado</label>
                         <select
                           value={editForm.status}
@@ -730,22 +825,6 @@ export default function ProductEditorPage() {
                     </div>
 
                     <div>
-                      <label className={label}>Categoría</label>
-                      <select
-                        value={editForm.categoryId}
-                        onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
-                        className={selectBase}
-                      >
-                        <option value="">Sin categoría</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
                       <label className={label}>Descripción</label>
                       <textarea
                         value={editForm.description}
@@ -755,21 +834,11 @@ export default function ProductEditorPage() {
                         placeholder="Opcional..."
                       />
                     </div>
-
-                    <div>
-                      <label className={label}>Orden</label>
-                      <input
-                        type="number"
-                        value={editForm.sortOrder}
-                        onChange={(e) => setEditForm({ ...editForm, sortOrder: e.target.value })}
-                        className={inputBase}
-                      />
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Footer sticky */}
+              {/* Footer */}
               <div className="sticky bottom-0 border-t border-slate-800/80 bg-slate-950/80 backdrop-blur p-4">
                 <div className="flex gap-2">
                   <button onClick={handleSaveEdit} className={`flex-1 ${btnPrimary}`}>
@@ -778,9 +847,6 @@ export default function ProductEditorPage() {
                   <button onClick={closeEditPanel} className={btn}>
                     Cancelar
                   </button>
-                </div>
-                <div className="mt-2 text-[11px] text-slate-500">
-                  Consejo: editá rápido acá; para cambios masivos usá la barra de acciones arriba.
                 </div>
               </div>
             </div>

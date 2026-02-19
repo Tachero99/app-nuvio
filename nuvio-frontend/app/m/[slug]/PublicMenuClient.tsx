@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import type { MenuBusiness, MenuCategory, MenuProduct, Money } from "./types";
 import { resolveMediaUrl } from "@/lib/media";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
 function moneyArs(value: Money) {
   const n = typeof value === "string" ? Number(value) : value;
@@ -25,15 +27,28 @@ function buildWaLink(waBase: string, text: string) {
   }
 }
 
+// ✨ NUEVO: Función para trackear clicks en productos
+function trackProductClick(businessId: number, productId?: number) {
+  if (!businessId) return;
+
+  fetch(`${API_BASE}/api/analytics/product-click`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ businessId, productId }),
+  }).catch((err) => console.error("Error tracking click:", err));
+}
+
 function ProductRow({
   p,
   waBase,
   businessName,
+  businessId,
   categoryName,
 }: {
   p: MenuProduct;
   waBase: string | null;
   businessName: string;
+  businessId: number;
   categoryName?: string;
 }) {
   const priceLabel = p.price != null ? moneyArs(p.price) : null;
@@ -51,6 +66,17 @@ function ProductRow({
   }, [businessName, p.name, priceLabel, categoryName]);
 
   const waHref = waBase ? buildWaLink(waBase, waText) : null;
+
+  // ✨ NUEVO: Handler para click en WhatsApp
+  const handleWhatsAppClick = () => {
+    if (!waHref) return;
+    
+    // Trackear el click
+    trackProductClick(businessId, p.id);
+    
+    // Abrir WhatsApp
+    window.open(waHref, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <li className="px-4 py-4">
@@ -85,14 +111,13 @@ function ProductRow({
 
           {waHref ? (
             <div className="mt-3">
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noreferrer"
+              {/* ✨ ACTUALIZADO: Usar onClick en vez de href directo */}
+              <button
+                onClick={handleWhatsAppClick}
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-medium text-white"
               >
                 Pedir este producto
-              </a>
+              </button>
             </div>
           ) : null}
         </div>
@@ -114,6 +139,20 @@ export default function PublicMenuClient({
   categories: MenuCategory[];
   ungroupedProducts: MenuProduct[];
 }) {
+  // ✨ NUEVO: Trackear vista del menú (solo una vez)
+  const tracked = useRef(false);
+
+  useEffect(() => {
+    if (tracked.current || !slug) return;
+
+    tracked.current = true;
+
+    // Registrar vista del menú
+    fetch(`${API_BASE}/api/analytics/menu-view/${slug}`, {
+      method: "POST",
+    }).catch((err) => console.error("Error tracking view:", err));
+  }, [slug]);
+
   const [open, setOpen] = useState<Record<number, boolean>>(() => {
     const initial: Record<number, boolean> = {};
     categories.forEach((c, idx) => (initial[c.id] = idx === 0));
@@ -134,6 +173,17 @@ export default function PublicMenuClient({
     }`;
     return buildWaLink(waBase, text);
   }, [waBase, business.name]);
+
+  // ✨ NUEVO: Handler para click en WhatsApp del botón superior
+  const handleTopWhatsAppClick = () => {
+    if (!waTop) return;
+    
+    // Trackear click sin productId (click general)
+    trackProductClick(business.id);
+    
+    // Abrir WhatsApp
+    window.open(waTop, "_blank", "noopener,noreferrer");
+  };
 
   function toggleCat(id: number) {
     setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -162,14 +212,13 @@ export default function PublicMenuClient({
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2 pt-2">
               {waTop ? (
-                <a
-                  href={waTop}
-                  target="_blank"
-                  rel="noreferrer"
+                /* ✨ ACTUALIZADO: Usar button con onClick */
+                <button
+                  onClick={handleTopWhatsAppClick}
                   className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white"
                 >
                   Pedir por WhatsApp
-                </a>
+                </button>
               ) : null}
 
               <button
@@ -243,6 +292,7 @@ export default function PublicMenuClient({
                       p={p}
                       waBase={waBase}
                       businessName={business.name}
+                      businessId={business.id}
                     />
                   ))}
                 </ul>
@@ -308,6 +358,7 @@ export default function PublicMenuClient({
                                     p={p}
                                     waBase={waBase}
                                     businessName={business.name}
+                                    businessId={business.id}
                                     categoryName={cat.name}
                                   />
                                 ))}
@@ -339,6 +390,7 @@ export default function PublicMenuClient({
                               p={p}
                               waBase={waBase}
                               businessName={business.name}
+                              businessId={business.id}
                               categoryName={cat.name}
                             />
                           ))}
@@ -353,14 +405,13 @@ export default function PublicMenuClient({
         </div>
 
         {waTop ? (
-          <a
-            href={waTop}
-            target="_blank"
-            rel="noreferrer"
+          /* ✨ ACTUALIZADO: Usar button con onClick */
+          <button
+            onClick={handleTopWhatsAppClick}
             className="fixed bottom-5 right-5 rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-medium text-white shadow-lg"
           >
             WhatsApp
-          </a>
+          </button>
         ) : null}
 
         <footer className="mt-10 border-t border-slate-800 pt-6 text-xs text-slate-500">

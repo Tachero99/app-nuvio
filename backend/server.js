@@ -12,6 +12,7 @@ import productRoutes from "./routes/product.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import sectionRoutes from "./routes/section.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,3 +58,5 @@ app.listen(PORT, () => {
   console.log(`API en http://localhost:${PORT}`);
   console.log("uploads dir:", uploadDir);
 });
+
+app.use("/api/analytics", analyticsRoutes);

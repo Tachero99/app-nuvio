@@ -1,4 +1,4 @@
-// routes/product.routes.js
+// routes/product.routes.js - CON SEGURIDAD MEJORADA
 import { Router } from "express";
 import {
   createProduct,
@@ -7,7 +7,7 @@ import {
   updateProduct,
   updateProductsBulk, 
   deleteProduct,
-  importProductsFromExcel,    // ← NUEVO
+  importProductsFromExcel,
   confirmImportProducts, 
 } from "../controllers/product.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
@@ -17,7 +17,7 @@ import multer from "multer";
 
 const router = Router();
 
-// ✨ NUEVO: Bulk endpoints (DEBEN IR ANTES de las rutas con :id)
+// ✨ Bulk endpoints (DEBEN IR ANTES de las rutas con :id)
 router.get("/business/:businessId/products/bulk", requireAuth, listProductsBulk);
 
 router.patch(
@@ -46,31 +46,62 @@ router.patch(
 router.delete("/products/:id", requireAuth, deleteProduct);
 
 
-// Configurar multer para archivos en memoria
-const uploadMemory = multer({
+// ✅ CONFIGURACIÓN SEGURA PARA IMPORTACIÓN DE EXCEL
+const uploadExcelSecure = multer({
   storage: multer.memoryStorage(),
+  
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max
+    fileSize: 5 * 1024 * 1024, // 5MB máximo
+    files: 1, // Solo 1 archivo a la vez
   },
+  
   fileFilter: (req, file, cb) => {
+    // ✅ SOLO aceptar .xlsx (el más seguro)
     const allowedMimes = [
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "text/csv",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Solo se permiten archivos Excel (.xls, .xlsx) o CSV"));
+    
+    if (!allowedMimes.includes(file.mimetype)) {
+      return cb(new Error("Solo se permiten archivos .xlsx"));
     }
-  },
+    
+    // ✅ Verificar extensión también (doble check)
+    if (!file.originalname.toLowerCase().endsWith('.xlsx')) {
+      return cb(new Error("Solo se permiten archivos .xlsx"));
+    }
+    
+    cb(null, true);
+  }
 });
 
-// ✨ Rutas de importación
+// ✅ Handler de errores de multer
+function handleUploadError(err, req, res, next) {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ 
+        message: "Archivo demasiado grande. Máximo 5MB" 
+      });
+    }
+    return res.status(400).json({ 
+      message: `Error de upload: ${err.message}` 
+    });
+  }
+  
+  if (err) {
+    return res.status(400).json({ 
+      message: err.message 
+    });
+  }
+  
+  next();
+}
+
+// ✨ Rutas de importación CON SEGURIDAD
 router.post(
   "/business/:businessId/products/import",
   requireAuth,
-  uploadMemory.single("file"),
+  uploadExcelSecure.single("file"),
+  handleUploadError,
   importProductsFromExcel
 );
 
