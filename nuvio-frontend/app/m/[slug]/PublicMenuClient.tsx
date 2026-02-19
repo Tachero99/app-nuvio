@@ -27,7 +27,7 @@ function buildWaLink(waBase: string, text: string) {
   }
 }
 
-// ✨ NUEVO: Función para trackear clicks en productos
+// ✨ Función para trackear clicks en productos
 function trackProductClick(businessId: number, productId?: number) {
   if (!businessId) return;
 
@@ -38,21 +38,24 @@ function trackProductClick(businessId: number, productId?: number) {
   }).catch((err) => console.error("Error tracking click:", err));
 }
 
+type Theme = "dark" | "light" | "warm";
+
 function ProductRow({
   p,
   waBase,
   businessName,
   businessId,
   categoryName,
+  theme,
 }: {
   p: MenuProduct;
   waBase: string | null;
   businessName: string;
   businessId: number;
   categoryName?: string;
+  theme: Theme;
 }) {
   const priceLabel = p.price != null ? moneyArs(p.price) : null;
-
   const imgSrc = useMemo(() => resolveMediaUrl(p.imageUrl), [p.imageUrl]);
 
   const waText = useMemo(() => {
@@ -67,14 +70,10 @@ function ProductRow({
 
   const waHref = waBase ? buildWaLink(waBase, waText) : null;
 
-  // ✨ NUEVO: Handler para click en WhatsApp
+  // ✨ Handler para click en WhatsApp con tracking
   const handleWhatsAppClick = () => {
     if (!waHref) return;
-    
-    // Trackear el click
     trackProductClick(businessId, p.id);
-    
-    // Abrir WhatsApp
     window.open(waHref, "_blank", "noopener,noreferrer");
   };
 
@@ -87,23 +86,43 @@ function ProductRow({
             alt={p.name}
             loading="lazy"
             decoding="async"
-            className="h-16 w-16 rounded-lg object-cover border border-slate-800 shrink-0"
+            className={`h-16 w-16 rounded-lg object-cover border shrink-0 ${
+              theme === "dark"
+                ? "border-slate-800"
+                : theme === "light"
+                ? "border-gray-300"
+                : "border-amber-700"
+            }`}
           />
         ) : (
-          <div className="h-16 w-16 rounded-lg border border-slate-800 bg-slate-900/40 shrink-0" />
+          <div
+            className={`h-16 w-16 rounded-lg border shrink-0 ${
+              theme === "dark"
+                ? "border-slate-800 bg-slate-900/40"
+                : theme === "light"
+                ? "border-gray-300 bg-gray-100"
+                : "border-amber-700 bg-amber-100"
+            }`}
+          />
         )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="font-medium truncate">{p.name}</div>
-              {p.description ? (
-                <div className="mt-1 text-sm text-slate-400">{p.description}</div>
-              ) : null}
+              {p.description ? <div className="mt-1 text-sm opacity-70">{p.description}</div> : null}
             </div>
 
             {priceLabel ? (
-              <div className="shrink-0 rounded-lg border border-slate-700 bg-slate-950/50 px-2 py-1 text-sm text-slate-200">
+              <div
+                className={`shrink-0 rounded-lg border px-2 py-1 text-sm ${
+                  theme === "dark"
+                    ? "border-slate-700 bg-slate-950/50 text-slate-200"
+                    : theme === "light"
+                    ? "border-gray-300 bg-white text-gray-800"
+                    : "border-amber-700 bg-amber-50 text-amber-900"
+                }`}
+              >
                 {priceLabel}
               </div>
             ) : null}
@@ -111,7 +130,6 @@ function ProductRow({
 
           {waHref ? (
             <div className="mt-3">
-              {/* ✨ ACTUALIZADO: Usar onClick en vez de href directo */}
               <button
                 onClick={handleWhatsAppClick}
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-medium text-white"
@@ -139,15 +157,13 @@ export default function PublicMenuClient({
   categories: MenuCategory[];
   ungroupedProducts: MenuProduct[];
 }) {
-  // ✨ NUEVO: Trackear vista del menú (solo una vez)
+  // ✨ Trackear vista del menú (solo una vez)
   const tracked = useRef(false);
 
   useEffect(() => {
     if (tracked.current || !slug) return;
-
     tracked.current = true;
 
-    // Registrar vista del menú
     fetch(`${API_BASE}/api/analytics/menu-view/${slug}`, {
       method: "POST",
     }).catch((err) => console.error("Error tracking view:", err));
@@ -159,6 +175,10 @@ export default function PublicMenuClient({
     if (ungroupedProducts.length) initial[-1] = true;
     return initial;
   });
+
+  // ✨ Estados para búsqueda y tema
+  const [searchQuery, setSearchQuery] = useState("");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   const allOpen = useMemo(() => {
     const catAll = categories.length ? categories.every((c) => open[c.id] === true) : true;
@@ -174,16 +194,44 @@ export default function PublicMenuClient({
     return buildWaLink(waBase, text);
   }, [waBase, business.name]);
 
-  // ✨ NUEVO: Handler para click en WhatsApp del botón superior
+  // ✨ Handler para click en WhatsApp del botón superior
   const handleTopWhatsAppClick = () => {
     if (!waTop) return;
-    
-    // Trackear click sin productId (click general)
     trackProductClick(business.id);
-    
-    // Abrir WhatsApp
     window.open(waTop, "_blank", "noopener,noreferrer");
   };
+
+  // ✨ Filtrar productos por búsqueda
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories;
+
+    const query = searchQuery.toLowerCase();
+
+    return categories
+      .map((cat) => {
+        const filteredSections = cat.sections
+          ?.map((section) => ({
+            ...section,
+            products: section.products.filter((p) => p.name.toLowerCase().includes(query)),
+          }))
+          .filter((s) => s.products.length > 0);
+
+        const filteredProducts = cat.products.filter((p) => p.name.toLowerCase().includes(query));
+
+        return {
+          ...cat,
+          sections: filteredSections,
+          products: filteredProducts,
+        };
+      })
+      .filter((c) => (c.sections && c.sections.length > 0) || c.products.length > 0);
+  }, [categories, searchQuery]);
+
+  const filteredUngrouped = useMemo(() => {
+    if (!searchQuery.trim()) return ungroupedProducts;
+    const query = searchQuery.toLowerCase();
+    return ungroupedProducts.filter((p) => p.name.toLowerCase().includes(query));
+  }, [ungroupedProducts, searchQuery]);
 
   function toggleCat(id: number) {
     setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -196,23 +244,59 @@ export default function PublicMenuClient({
     setOpen(m);
   }
 
+  // ✨ Estilos por tema
+  const themeClasses = {
+    dark: {
+      bg: "bg-slate-950",
+      text: "text-slate-100",
+      card: "bg-slate-900/40 border-slate-800",
+      button: "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800",
+      input: "bg-slate-800 border-slate-700 text-white",
+      divider: "divide-slate-800",
+      sectionHeader: "bg-slate-800/50 border-slate-700",
+      footer: "border-slate-800",
+    },
+    light: {
+      bg: "bg-gray-50",
+      text: "text-gray-900",
+      card: "bg-white border-gray-200",
+      button: "bg-white border-gray-300 text-gray-700 hover:bg-gray-50",
+      input: "bg-white border-gray-300 text-gray-900",
+      divider: "divide-gray-200",
+      sectionHeader: "bg-gray-100 border-gray-300",
+      footer: "border-gray-200",
+    },
+    warm: {
+      bg: "bg-amber-50",
+      text: "text-amber-950",
+      card: "bg-white border-amber-200",
+      button: "bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200",
+      input: "bg-white border-amber-300 text-amber-900",
+      divider: "divide-amber-200",
+      sectionHeader: "bg-amber-100 border-amber-300",
+      footer: "border-amber-200",
+    },
+  };
+
+  const t = themeClasses[theme];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className={`min-h-screen ${t.bg} ${t.text}`}>
       <div className="mx-auto max-w-3xl px-4 py-10">
         <header className="space-y-3">
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">{business.name}</h1>
             {business.address ? (
-              <p className="text-sm text-slate-400">{business.address}</p>
+              <p className="text-sm opacity-70">{business.address}</p>
             ) : (
-              <p className="text-sm text-slate-500">Menú digital</p>
+              <p className="text-sm opacity-50">Menú digital</p>
             )}
           </div>
 
           <div className="flex flex-col gap-3">
+            {/* Controles superiores */}
             <div className="flex flex-wrap items-center gap-2 pt-2">
               {waTop ? (
-                /* ✨ ACTUALIZADO: Usar button con onClick */
                 <button
                   onClick={handleTopWhatsAppClick}
                   className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white"
@@ -223,15 +307,58 @@ export default function PublicMenuClient({
 
               <button
                 onClick={() => setAll(!allOpen)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                className={`inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm ${t.button}`}
               >
                 {allOpen ? "Contraer todo" : "Expandir todo"}
               </button>
+
+              {/* ✨ Selector de tema */}
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`p-2 rounded-lg border ${
+                    theme === "dark" ? "bg-slate-700 border-slate-600" : t.button
+                  }`}
+                  title="Modo oscuro"
+                >
+                  🌙
+                </button>
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`p-2 rounded-lg border ${
+                    theme === "light" ? "bg-gray-200 border-gray-400" : t.button
+                  }`}
+                  title="Modo claro"
+                >
+                  ☀️
+                </button>
+                <button
+                  onClick={() => setTheme("warm")}
+                  className={`p-2 rounded-lg border ${
+                    theme === "warm" ? "bg-amber-200 border-amber-400" : t.button
+                  }`}
+                  title="Modo cálido"
+                >
+                  🍂
+                </button>
+              </div>
             </div>
 
-            {(categories.length || ungroupedProducts.length) ? (
+            {/* ✨ Barra de búsqueda */}
+            <div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar productos..."
+                className={`w-full rounded-xl border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${t.input}`}
+              />
+            </div>
+
+            {/* Filtros de categoría */}
+            {(filteredCategories.length > 0 || filteredUngrouped.length > 0) && (
               <div className="flex flex-wrap gap-2">
-                {categories.map((c) => (
+                {filteredCategories.map((c) => (
                   <button
                     key={c.id}
                     type="button"
@@ -241,14 +368,14 @@ export default function PublicMenuClient({
                         block: "start",
                       });
                     }}
-                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                    className={`rounded-full border px-3 py-1 text-xs ${t.button}`}
                     title={c.name}
                   >
                     {c.name}
                   </button>
                 ))}
 
-                {ungroupedProducts.length ? (
+                {filteredUngrouped.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
@@ -257,101 +384,119 @@ export default function PublicMenuClient({
                         block: "start",
                       });
                     }}
-                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                    className={`rounded-full border px-3 py-1 text-xs ${t.button}`}
                   >
                     Otros
                   </button>
-                ) : null}
+                )}
               </div>
-            ) : null}
+            )}
           </div>
         </header>
 
+        {/* Mensaje si no hay resultados */}
+        {searchQuery &&
+          filteredCategories.length === 0 &&
+          filteredUngrouped.length === 0 && (
+            <div className={`mt-6 rounded-2xl border p-8 text-center ${t.card}`}>
+              <p className="text-sm opacity-70">
+                No se encontraron productos con "{searchQuery}"
+              </p>
+            </div>
+          )}
+
         <div className="mt-6 space-y-6">
           {/* Otros */}
-          {ungroupedProducts.length ? (
-            <section
-              id="cat-ungrouped"
-              className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden"
-            >
+          {filteredUngrouped.length > 0 && (
+            <section id="cat-ungrouped" className={`rounded-2xl border overflow-hidden ${t.card}`}>
               <button
                 onClick={() => toggleCat(-1)}
-                className="w-full flex items-center justify-between border-b border-slate-800 px-4 py-3 hover:bg-slate-900/60"
+                className={`w-full flex items-center justify-between border-b px-4 py-3 ${t.button}`}
               >
                 <h2 className="text-lg font-medium">Otros</h2>
-                <span className="text-xs text-slate-400">
-                  {open[-1] === false ? "Mostrar" : "Ocultar"}
-                </span>
+                <span className="text-xs opacity-70">{open[-1] === false ? "Mostrar" : "Ocultar"}</span>
               </button>
 
-              {open[-1] === false ? null : (
-                <ul className="divide-y divide-slate-800">
-                  {ungroupedProducts.map((p) => (
+              {open[-1] !== false && (
+                <ul className={`divide-y ${t.divider}`}>
+                  {filteredUngrouped.map((p) => (
                     <ProductRow
                       key={p.id}
                       p={p}
                       waBase={waBase}
                       businessName={business.name}
                       businessId={business.id}
+                      theme={theme}
                     />
                   ))}
                 </ul>
               )}
             </section>
-          ) : null}
+          )}
 
           {/* Categorías */}
-          {categories.map((cat) => {
+          {filteredCategories.map((cat) => {
             const isOpen = open[cat.id] === true;
             const catImgSrc = resolveMediaUrl(cat.imageUrl);
-            
-            // Contar total de productos
-            const sectionsProductCount = cat.sections?.reduce((sum, s) => sum + (s.products?.length || 0), 0) || 0;
+
+            const sectionsProductCount =
+              cat.sections?.reduce((sum, s) => sum + (s.products?.length || 0), 0) || 0;
             const directProductCount = cat.products?.length || 0;
             const totalProducts = sectionsProductCount + directProductCount;
 
             return (
-              <section
-                id={`cat-${cat.id}`}
-                key={cat.id}
-                className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden"
-              >
+              <section key={cat.id} id={`cat-${cat.id}`} className={`rounded-2xl border overflow-hidden ${t.card}`}>
                 <button
                   onClick={() => toggleCat(cat.id)}
-                  className="w-full flex items-center justify-between border-b border-slate-800 px-4 py-3 hover:bg-slate-900/60"
+                  className={`w-full flex items-center justify-between border-b px-4 py-3 ${t.button}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {catImgSrc ? (
                       <img
                         src={catImgSrc}
                         alt={cat.name}
-                        className="h-9 w-9 rounded-lg object-cover border border-slate-800"
+                        className={`h-9 w-9 rounded-lg object-cover border ${
+                          theme === "dark"
+                            ? "border-slate-800"
+                            : theme === "light"
+                            ? "border-gray-300"
+                            : "border-amber-700"
+                        }`}
                       />
                     ) : (
-                      <div className="h-9 w-9 rounded-lg border border-slate-800 bg-slate-900/40" />
+                      <div
+                        className={`h-9 w-9 rounded-lg border ${
+                          theme === "dark"
+                            ? "border-slate-800 bg-slate-900/40"
+                            : theme === "light"
+                            ? "border-gray-300 bg-gray-100"
+                            : "border-amber-700 bg-amber-100"
+                        }`}
+                      />
                     )}
                     <h2 className="text-lg font-medium truncate">{cat.name}</h2>
                   </div>
 
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs opacity-70">
                     {isOpen ? "Ocultar" : "Mostrar"} · {totalProducts}
                   </span>
                 </button>
 
-                {isOpen ? (
+                {isOpen && (
                   <div>
-                    {/* Renderizar secciones */}
+                    {/* Secciones */}
                     {cat.sections && cat.sections.length > 0 && (
                       <div>
                         {cat.sections.map((section) => (
                           <div key={section.id}>
-                            <div className="px-4 py-3 bg-slate-800/50 border-b border-slate-700">
-                              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+                            <div className={`px-4 py-3 border-b ${t.sectionHeader}`}>
+                              <h3 className="text-sm font-bold uppercase tracking-wider">
                                 {section.name}
                               </h3>
                             </div>
-                            {section.products && section.products.length > 0 ? (
-                              <ul className="divide-y divide-slate-800">
+
+                            {section.products && section.products.length > 0 && (
+                              <ul className={`divide-y ${t.divider}`}>
                                 {section.products.map((p) => (
                                   <ProductRow
                                     key={p.id}
@@ -360,13 +505,10 @@ export default function PublicMenuClient({
                                     businessName={business.name}
                                     businessId={business.id}
                                     categoryName={cat.name}
+                                    theme={theme}
                                   />
                                 ))}
                               </ul>
-                            ) : (
-                              <div className="px-4 py-4 text-sm text-slate-500">
-                                Sin productos en esta sección
-                              </div>
                             )}
                           </div>
                         ))}
@@ -377,13 +519,11 @@ export default function PublicMenuClient({
                     {cat.products && cat.products.length > 0 && (
                       <>
                         {cat.sections && cat.sections.length > 0 && (
-                          <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-700 border-t">
-                            <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                              Sin sección
-                            </h3>
+                          <div className={`px-4 py-3 border-b border-t ${t.sectionHeader}`}>
+                            <h3 className="text-sm font-bold uppercase tracking-wider">Sin sección</h3>
                           </div>
                         )}
-                        <ul className="divide-y divide-slate-800">
+                        <ul className={`divide-y ${t.divider}`}>
                           {cat.products.map((p) => (
                             <ProductRow
                               key={p.id}
@@ -392,32 +532,31 @@ export default function PublicMenuClient({
                               businessName={business.name}
                               businessId={business.id}
                               categoryName={cat.name}
+                              theme={theme}
                             />
                           ))}
                         </ul>
                       </>
                     )}
                   </div>
-                ) : null}
+                )}
               </section>
             );
           })}
         </div>
 
-        {waTop ? (
-          /* ✨ ACTUALIZADO: Usar button con onClick */
+        {waTop && (
           <button
             onClick={handleTopWhatsAppClick}
             className="fixed bottom-5 right-5 rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-medium text-white shadow-lg"
           >
             WhatsApp
           </button>
-        ) : null}
+        )}
 
-        <footer className="mt-10 border-t border-slate-800 pt-6 text-xs text-slate-500">
+        <footer className={`mt-10 border-t pt-6 text-xs opacity-50 ${t.footer}`}>
           <p>
-            Hecho con <span className="text-slate-300">Nuvio</span> ·{" "}
-            <span className="font-mono">/m/{slug}</span>
+            Hecho con <span className="opacity-100">Nuvio</span> · <span className="font-mono">/m/{slug}</span>
           </p>
         </footer>
       </div>
