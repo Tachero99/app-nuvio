@@ -60,6 +60,9 @@ export default function BulkEditorPage() {
     description: "",
     imageUrl: "",
     sortOrder: "",
+    // ✨ NUEVO MÓDULO 5
+    isFeatured: false,
+    isAvailable: true,
   });
 
   // Auth check
@@ -159,6 +162,9 @@ export default function BulkEditorPage() {
       description: product.description || "",
       imageUrl: product.imageUrl || "",
       sortOrder: String(product.sortOrder ?? ""),
+        // ✨ NUEVO MÓDULO 5
+      isFeatured: (product as any).isFeatured ?? false,
+      isAvailable: (product as any).isAvailable ?? true,
     });
   };
 
@@ -180,6 +186,9 @@ export default function BulkEditorPage() {
           description: editForm.description.trim() || null,
           imageUrl: editForm.imageUrl.trim() || null,
           sortOrder: editForm.sortOrder ? Number(editForm.sortOrder) : 0,
+           // ✨ NUEVO MÓDULO 5
+          isFeatured: editForm.isFeatured,
+          isAvailable: editForm.isAvailable,
         },
       ];
 
@@ -381,6 +390,46 @@ export default function BulkEditorPage() {
                   className={btn}
                 >
                   Desactivar
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const updates = Array.from(selectedIds).map((id) => ({
+                        id,
+                        isFeatured: true,
+                      }));
+                      const result = await updateProductsBulk(updates);
+                      notify.success(result.message);
+                      await loadData();
+                      setSelectedIds(new Set());
+                    } catch (err: any) {
+                      notify.error(err.message || "Error marcando como destacados");
+                    }
+                  }}
+                  className="rounded-xl border border-yellow-800 bg-yellow-950/40 px-3 py-2 text-sm text-yellow-200 hover:bg-yellow-950/60"
+                >
+                  ⭐ Destacar
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const updates = Array.from(selectedIds).map((id) => ({
+                        id,
+                        isAvailable: false,
+                      }));
+                      const result = await updateProductsBulk(updates);
+                      notify.success(result.message);
+                      await loadData();
+                      setSelectedIds(new Set());
+                    } catch (err: any) {
+                      notify.error(err.message || "Error marcando como no disponibles");
+                    }
+                  }}
+                  className={btn}
+                >
+                  ❌ Marcar no disponible
                 </button>
 
                 <button
@@ -833,6 +882,45 @@ export default function BulkEditorPage() {
                         className={`${inputBase} resize-none`}
                         placeholder="Opcional..."
                       />
+                    </div>
+
+                      {/* ✨ MÓDULO 5: Destacado y disponibilidad */}
+                    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-4">
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={editForm.isFeatured}
+                            onChange={(e) => setEditForm({ ...editForm, isFeatured: e.target.checked })}
+                            className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-slate-200 group-hover:text-indigo-300 transition-colors">
+                              ⭐ Producto destacado
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Aparecerá en la sección especial del menú
+                            </div>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={editForm.isAvailable}
+                            onChange={(e) => setEditForm({ ...editForm, isAvailable: e.target.checked })}
+                            className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-slate-200 group-hover:text-indigo-300 transition-colors">
+                              ✅ Producto disponible
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Si está desactivado, no se mostrará en el menú público
+                            </div>
+                          </div>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>

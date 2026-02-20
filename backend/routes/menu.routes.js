@@ -1,4 +1,4 @@
-// routes/menu.routes.js - ACTUALIZADO CON SECCIONES Y MÓDULO 4
+// routes/menu.routes.js - CON MÓDULO 5 (PRODUCTOS DESTACADOS)
 import { Router } from "express";
 import { prisma } from "../prismaClient.js";
 import QRCode from "qrcode"; 
@@ -39,7 +39,7 @@ router.get("/:slug/qr.png", async (req, res) => {
 });
 
 
-// ✨ Endpoint público: menú por slug de negocio (CON SECCIONES Y MÓDULO 4)
+// ✨ Endpoint público: menú por slug de negocio (CON MÓDULO 5)
 router.get("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -53,7 +53,7 @@ router.get("/:slug", async (req, res) => {
         whatsapp: true,
         address: true,
         isActive: true,
-        // ✨ NUEVO MÓDULO 4: Campos adicionales
+        // MÓDULO 4: Campos adicionales
         description: true,
         logo: true,
         instagram: true,
@@ -78,14 +78,19 @@ router.get("/:slug", async (req, res) => {
       },
       orderBy: { sortOrder: "asc" },
       include: {
-        // ✨ incluir secciones
         sections: {
           where: { isActive: true },
           orderBy: { sortOrder: "asc" },
           include: {
             products: {
-              where: { status: "ACTIVE" },
-              orderBy: { sortOrder: "asc" },
+              where: { 
+                status: "ACTIVE",
+                isAvailable: true  // ✨ MÓDULO 5: Solo productos disponibles
+              },
+              orderBy: [
+                { isFeatured: "desc" },  // ✨ MÓDULO 5: Destacados primero
+                { sortOrder: "asc" }
+              ],
             },
           },
         },
@@ -93,9 +98,13 @@ router.get("/:slug", async (req, res) => {
         products: {
           where: {
             status: "ACTIVE",
+            isAvailable: true,  // ✨ MÓDULO 5: Solo productos disponibles
             sectionId: null,
           },
-          orderBy: { sortOrder: "asc" },
+          orderBy: [
+            { isFeatured: "desc" },  // ✨ MÓDULO 5: Destacados primero
+            { sortOrder: "asc" }
+          ],
         },
       },
     });
@@ -105,9 +114,13 @@ router.get("/:slug", async (req, res) => {
       where: {
         businessId: business.id,
         status: "ACTIVE",
+        isAvailable: true,  // ✨ MÓDULO 5: Solo productos disponibles
         categoryId: null,
       },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [
+        { isFeatured: "desc" },  // ✨ MÓDULO 5: Destacados primero
+        { sortOrder: "asc" }
+      ],
     });
 
     // Formatear respuesta con secciones
@@ -132,7 +145,7 @@ router.get("/:slug", async (req, res) => {
         slug: business.slug,
         whatsapp: business.whatsapp,
         address: business.address,
-        // ✨ NUEVO MÓDULO 4: Incluir en respuesta
+        // MÓDULO 4: Incluir en respuesta
         description: business.description,
         logo: business.logo,
         instagram: business.instagram,

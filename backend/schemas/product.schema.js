@@ -44,6 +44,8 @@ export const productUpdateSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   imageUrl: z.string().trim().url("imageUrl debe ser URL válida").nullable().optional(),
   sortOrder: intField(0, 10000).optional(),
+  isFeatured: z.boolean().optional(),
+  isAvailable: z.boolean().optional(),
 });
 
 // ✨ NUEVO: Schema para bulk update

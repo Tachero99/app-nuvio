@@ -127,6 +127,8 @@ export async function updateProduct(req, res) {
       categoryId,
       sectionId,
       imageUrl,
+      isFeatured,
+      isAvailable,
     } = req.body;
 
     if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido" });
@@ -188,6 +190,9 @@ export async function updateProduct(req, res) {
         sectionId: parsedSectionId,
 
         imageUrl: imageUrl === undefined ? undefined : (String(imageUrl).trim() || null),
+
+        isFeatured: isFeatured === undefined ? undefined : isFeatured,
+        isAvailable: isAvailable === undefined ? undefined : isAvailable,
       },
     });
 

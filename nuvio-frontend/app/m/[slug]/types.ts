@@ -11,6 +11,9 @@ export type MenuProduct = {
   sortOrder?: number | null;
   categoryId?: number | null;
   sectionId?: number | null; // ✨ NUEVO
+   // ✨ MÓDULO 5
+  isFeatured?: boolean;
+  isAvailable?: boolean;
 };
 
 // ✨ NUEVO: Tipo Section

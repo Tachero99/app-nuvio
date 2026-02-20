@@ -82,6 +82,13 @@ export default function ProductsPage() {
   const [editSortOrder, setEditSortOrder] = useState<string>("0");
   const [editImageUrl, setEditImageUrl] = useState<string>("");
 
+    // ✨ MÓDULO 5: Destacado y disponibilidad
+  const [newIsFeatured, setNewIsFeatured] = useState(false);
+  const [newIsAvailable, setNewIsAvailable] = useState(true);
+
+  const [editIsFeatured, setEditIsFeatured] = useState(false);
+  const [editIsAvailable, setEditIsAvailable] = useState(true);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -245,6 +252,9 @@ export default function ProductsPage() {
         description: newDescription.trim() ? newDescription.trim() : null,
         sortOrder: sortOrderNum,
         imageUrl: newImageUrl.trim() ? newImageUrl.trim() : null,
+              // ✨ NUEVO MÓDULO 5
+        isFeatured: newIsFeatured,
+        isAvailable: newIsAvailable,
       } as any);
 
       setNewName("");
@@ -254,6 +264,8 @@ export default function ProductsPage() {
       setNewDescription("");
       setNewSortOrder("0");
       setNewImageUrl("");
+      setNewIsFeatured(false);  // ✨ NUEVO
+      setNewIsAvailable(true);  // ✨ NUEVO
 
       notify.success("Producto creado ✅");
       await refresh();
@@ -276,6 +288,10 @@ export default function ProductsPage() {
     setEditDescription(p.description ?? "");
     setEditSortOrder(p.sortOrder == null ? "0" : String(p.sortOrder));
     setEditImageUrl((p.imageUrl as any) ?? "");
+
+      // ✨ NUEVO MÓDULO 5
+    setEditIsFeatured((p as any).isFeatured ?? false);
+    setEditIsAvailable((p as any).isAvailable ?? true);
   }
 
   function cancelEdit() {
@@ -287,6 +303,10 @@ export default function ProductsPage() {
     setEditDescription("");
     setEditSortOrder("0");
     setEditImageUrl("");
+
+      // ✨ NUEVO MÓDULO 5
+    setEditIsFeatured(false);
+    setEditIsAvailable(true);
   }
 
   async function saveEdit(productId: number) {
@@ -318,6 +338,9 @@ export default function ProductsPage() {
         description: editDescription.trim() ? editDescription.trim() : null,
         sortOrder: sortOrderNum,
         imageUrl: editImageUrl.trim() ? editImageUrl.trim() : null,
+        // ✨ NUEVO MÓDULO 5
+        isFeatured: editIsFeatured,
+        isAvailable: editIsAvailable,
       } as any);
 
       notify.success("Producto actualizado ✅");
@@ -579,6 +602,31 @@ export default function ProductsPage() {
               />
             </div>
 
+                        {/* ✨ MÓDULO 5: Destacado y disponibilidad */}
+            <div className="md:col-span-12">
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newIsFeatured}
+                    onChange={(e) => setNewIsFeatured(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-300">⭐ Producto destacado</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newIsAvailable}
+                    onChange={(e) => setNewIsAvailable(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-300">✅ Disponible</span>
+                </label>
+              </div>
+            </div>
+
             <div className="md:col-span-12 flex gap-2">
               <button
                 onClick={onCreate}
@@ -650,6 +698,11 @@ export default function ProductsPage() {
                       setEditSortOrder,
                       editImageUrl,
                       setEditImageUrl,
+                       // ✨ MÓDULO 5
+                      editIsFeatured,
+                      setEditIsFeatured,
+                      editIsAvailable,
+                      setEditIsAvailable,
                     }}
                     draggableProps={draggableProps}
                     handleProps={handleProps}
@@ -708,6 +761,11 @@ export default function ProductsPage() {
                       setEditSortOrder,
                       editImageUrl,
                       setEditImageUrl,
+                       // ✨ MÓDULO 5
+                      editIsFeatured,
+                      setEditIsFeatured,
+                      editIsAvailable,
+                      setEditIsAvailable,
                     }}
                     draggableProps={draggableProps}
                     handleProps={handleProps}
@@ -766,6 +824,11 @@ function ProductRow({
     setEditSortOrder: (v: string) => void;
     editImageUrl: string;
     setEditImageUrl: (v: string) => void;
+      // ✨ MÓDULO 5
+    editIsFeatured: boolean;
+    setEditIsFeatured: (v: boolean) => void;
+    editIsAvailable: boolean;
+    setEditIsAvailable: (v: boolean) => void;
   };
   draggableProps: React.HTMLAttributes<HTMLElement>;
   handleProps: React.HTMLAttributes<HTMLElement>;
@@ -792,6 +855,11 @@ function ProductRow({
     setEditSortOrder,
     editImageUrl,
     setEditImageUrl,
+     // ✨ MÓDULO 5
+    editIsFeatured,
+    setEditIsFeatured,
+    editIsAvailable,
+    setEditIsAvailable,
   } = editState;
 
   return (
@@ -946,6 +1014,31 @@ function ProductRow({
               />
             </div>
           </div>
+                      
+                      {/* ✨ MÓDULO 5: Destacado y disponibilidad */}
+          <div className="md:col-span-12">
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editIsFeatured}
+                  onChange={(e) => setEditIsFeatured(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-slate-300">⭐ Producto destacado</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editIsAvailable}
+                  onChange={(e) => setEditIsAvailable(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-slate-300">✅ Disponible</span>
+              </label>
+            </div>
+</div>
 
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-slate-500">

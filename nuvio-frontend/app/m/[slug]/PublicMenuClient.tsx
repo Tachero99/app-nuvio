@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import type { MenuBusiness, MenuCategory, MenuProduct, Money } from "./types";
 import { resolveMediaUrl } from "@/lib/media";
+import { FeaturedProducts } from "@/components/FeaturedProducts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
@@ -134,22 +135,22 @@ function ProductRow({
 
           {waHref ? (
             <div className="mt-3">
-                  {useSecondary ? (
-                    <button
-                      onClick={handleWhatsAppClick}
-                      className="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-medium transition-colors duration-200 hover:opacity-95"
-                      style={{ backgroundColor: secondaryColor, color: secondaryTextColor, borderColor: secondaryColor }}
-                    >
-                      Pedir este producto
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleWhatsAppClick}
-                      className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-medium text-white transition-colors duration-200 hover:opacity-95"
-                    >
-                      Pedir este producto
-                    </button>
-                  )}
+              {useSecondary ? (
+                <button
+                  onClick={handleWhatsAppClick}
+                  className="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-medium transition-colors duration-200 hover:opacity-95"
+                  style={{ backgroundColor: secondaryColor, color: secondaryTextColor, borderColor: secondaryColor }}
+                >
+                  Pedir este producto
+                </button>
+              ) : (
+                <button
+                  onClick={handleWhatsAppClick}
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-medium text-white transition-colors duration-200 hover:opacity-95"
+                >
+                  Pedir este producto
+                </button>
+              )}
             </div>
           ) : null}
         </div>
@@ -191,7 +192,6 @@ export default function PublicMenuClient({
 
   const [searchQuery, setSearchQuery] = useState("");
   
-  // ✨ NUEVO: Aplicar tema predeterminado del negocio
   const defaultTheme = useMemo(() => {
     const config = (business as any).menuConfig;
     if (config && typeof config === "object" && config.theme) {
@@ -266,7 +266,6 @@ export default function PublicMenuClient({
     setOpen(m);
   }
 
-  // ✨ Extraer información adicional del negocio
   const businessInfo = useMemo(() => {
     const info = business as any;
     return {
@@ -281,6 +280,38 @@ export default function PublicMenuClient({
       secondaryColor: info.menuConfig?.secondaryColor || null,
     };
   }, [business]);
+
+  // ✨ NUEVO: Filtrar productos destacados de TODAS las fuentes
+  const featuredProducts = useMemo(() => {
+    const allProducts: MenuProduct[] = [];
+    
+    // Productos de categorías con secciones
+    categories.forEach((cat) => {
+      cat.sections?.forEach((section) => {
+        section.products.forEach((p) => {
+          if ((p as any).isFeatured && (p as any).isAvailable !== false) {
+            allProducts.push(p);
+          }
+        });
+      });
+      
+      // Productos sin sección
+      cat.products.forEach((p) => {
+        if ((p as any).isFeatured && (p as any).isAvailable !== false) {
+          allProducts.push(p);
+        }
+      });
+    });
+    
+    // Productos sin categoría
+    ungroupedProducts.forEach((p) => {
+      if ((p as any).isFeatured && (p as any).isAvailable !== false) {
+        allProducts.push(p);
+      }
+    });
+    
+    return allProducts;
+  }, [categories, ungroupedProducts]);
 
   function getContrastColor(hex?: string) {
     if (!hex) return "#ffffff";
@@ -346,14 +377,12 @@ export default function PublicMenuClient({
     }
   }, [business]);
 
-  // Sync single-toggle `customAll` to individual toggles
   useEffect(() => {
     setCustomBg(customAll);
     setCustomCard(customAll);
     setCustomSecondary(customAll);
   }, [customAll]);
 
-  // Load persisted toggles if menuConfig matches
   useEffect(() => {
     if (typeof window === "undefined") return;
     const key = `nuvio_menu_toggles_${business.id}`;
@@ -370,7 +399,6 @@ export default function PublicMenuClient({
     }
   }, [business.id, menuConfigVersion]);
 
-  // Persist toggles when they change
   useEffect(() => {
     if (typeof window === "undefined") return;
     const key = `nuvio_menu_toggles_${business.id}`;
@@ -395,7 +423,6 @@ export default function PublicMenuClient({
     >
       <div className="mx-auto max-w-3xl px-4 py-10">
         <header className="space-y-3">
-          {/* ✨ Logo del negocio */}
           {businessInfo.logo && (
             <div className="flex justify-center mb-4">
               <img
@@ -409,7 +436,6 @@ export default function PublicMenuClient({
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">{business.name}</h1>
             
-            {/* ✨ Descripción del negocio */}
             {businessInfo.description && (
               <p className="text-sm opacity-70 mt-2">{businessInfo.description}</p>
             )}
@@ -420,7 +446,6 @@ export default function PublicMenuClient({
               <p className="text-sm opacity-50">Menú digital</p>
             )}
 
-            {/* ✨ Redes sociales */}
             {(businessInfo.instagram || businessInfo.facebook || businessInfo.website) && (
               <div className="flex flex-wrap gap-3 mt-3">
                 {businessInfo.instagram && (
@@ -464,9 +489,7 @@ export default function PublicMenuClient({
             <div className="flex flex-wrap items-center gap-2 pt-2">
               {waTop ? (
                 <button
-                  onClick={() => {
-                    handleTopWhatsAppClick();
-                  }}
+                  onClick={handleTopWhatsAppClick}
                   className={customSecondary ? "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-200" : "inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors duration-200"}
                   style={customSecondary ? { backgroundColor: secondaryColor, color: secondaryTextColor, borderColor: secondaryColor } : undefined}
                 >
@@ -590,6 +613,9 @@ export default function PublicMenuClient({
           )}
 
         <div className="mt-6 space-y-6">
+          {/* ✨ PRODUCTOS DESTACADOS */}
+          <FeaturedProducts products={featuredProducts} theme={theme} />
+
           {filteredUngrouped.length > 0 && (
             <section id="cat-ungrouped" className={`rounded-2xl border overflow-hidden ${t.card}`} style={
               customCard
@@ -606,7 +632,7 @@ export default function PublicMenuClient({
 
               {open[-1] !== false && (
                 <ul className={`divide-y ${t.divider}`}>
-                          {filteredUngrouped.map((p) => (
+                  {filteredUngrouped.map((p) => (
                     <ProductRow
                       key={p.id}
                       p={p}
@@ -633,7 +659,7 @@ export default function PublicMenuClient({
             const directProductCount = cat.products?.length || 0;
             const totalProducts = sectionsProductCount + directProductCount;
 
-              return (
+            return (
               <section key={cat.id} id={`cat-${cat.id}`} className={`rounded-2xl border overflow-hidden ${t.card}`} style={
                 customCard
                   ? { backgroundColor: cardColor, color: cardTextColor, borderColor: cardColor, transition: "background-color 200ms, color 200ms, border-color 200ms" }
@@ -753,7 +779,6 @@ export default function PublicMenuClient({
         )}
 
         <footer className={`mt-10 border-t pt-6 text-sm opacity-80 ${t.footer}`}>
-          {/* ✨ Horarios de atención */}
           {businessInfo.hours && (
             <div className="mb-6 text-base">
               <div className="font-medium mb-3 text-lg">Horarios de atención:</div>

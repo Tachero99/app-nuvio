@@ -1,4 +1,4 @@
-// prisma/schema.prisma - COMPLETO CON MÓDULO 4
+// prisma/schema.prisma - COMPLETO CON MÓDULOS 4 Y 5
 
 datasource db {
   provider = "postgresql"
@@ -47,19 +47,19 @@ model Business {
   whatsapp  String?
   address   String?
   
-  // ✨ NUEVO MÓDULO 4: Info extendida
+  // ✨ MÓDULO 4: Info extendida
   description String?  @db.Text
   logo        String?  @db.Text
   
-  // ✨ NUEVO MÓDULO 4: Redes sociales
+  // ✨ MÓDULO 4: Redes sociales
   instagram   String?  @db.VarChar(255)
   facebook    String?  @db.VarChar(255)
   website     String?  @db.VarChar(255)
   
-  // ✨ NUEVO MÓDULO 4: Horarios
+  // ✨ MÓDULO 4: Horarios
   hours       Json?
   
-  // ✨ NUEVO MÓDULO 4: Personalización del menú
+  // ✨ MÓDULO 4: Personalización del menú
   menuConfig  Json?
   
   isActive  Boolean  @default(true)
@@ -74,6 +74,9 @@ model Business {
   // Relaciones de analytics
   menuViews     MenuView[]
   productClicks ProductClick[]
+  
+  // ✨ MÓDULO 5: Promociones
+  promotions    Promotion[]
 }
 
 model Category {
@@ -129,14 +132,26 @@ model Product {
   stock       Int?          @default(0)
   imageUrl    String?
   sortOrder   Int           @default(0)
+  
+  // ✨ MÓDULO 5: Destacado
+  isFeatured  Boolean       @default(false)
+  
+  // ✨ MÓDULO 5: Disponibilidad
+  isAvailable Boolean       @default(true)
+  
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @default(now()) @updatedAt
 
-  orderItems OrderItem[]
-  clicks     ProductClick[]
+  orderItems  OrderItem[]
+  clicks      ProductClick[]
+  
+  // ✨ MÓDULO 5: Promociones
+  promotions  Promotion[]
 
   @@index([categoryId])
   @@index([sectionId])
+  @@index([isFeatured])
+  @@index([isAvailable])
 }
 
 enum OrderStatus {
@@ -203,4 +218,36 @@ model ProductClick {
   @@index([productId])
   @@index([clickedAt])
   @@map("product_clicks")
+}
+
+// ✨ MÓDULO 5: Modelo de promociones
+model Promotion {
+  id            Int      @id @default(autoincrement())
+  businessId    Int
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  productId     Int?
+  product       Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  
+  // Tipo de descuento: PERCENTAGE o FIXED
+  discountType  String   @db.VarChar(20)
+  discountValue Decimal  @db.Decimal(10, 2)
+  
+  // Validez
+  startDate     DateTime
+  endDate       DateTime
+  
+  isActive      Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([businessId])
+  @@index([productId])
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@map("promotions")
 }
