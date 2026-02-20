@@ -1,4 +1,4 @@
-// controllers/business.controller.js
+// controllers/business.controller.js - ACTUALIZADO CON MÓDULO 4
 import { prisma } from "../prismaClient.js";
 
 /**
@@ -7,7 +7,7 @@ import { prisma } from "../prismaClient.js";
  */
 export const createBusiness = async (req, res) => {
   try {
-    const userId = req.user.id; // viene del middleware de auth
+    const userId = req.user.id;
     const { name, slug, whatsapp, address } = req.body;
 
     if (!name || !slug) {
@@ -64,6 +64,14 @@ export const getMyBusiness = async (req, res) => {
         address: true,
         whatsapp: true,
         isActive: true,
+        // ✨ Campos nuevos del Módulo 4
+        description: true,
+        logo: true,
+        instagram: true,
+        facebook: true,
+        website: true,
+        hours: true,
+        menuConfig: true,
       },
     });
 
@@ -83,7 +91,6 @@ export const getMyBusiness = async (req, res) => {
 /**
  * Actualiza datos del negocio del usuario
  */
-
 export const updateMyBusiness = async (req, res) => {
   try {
     if (req.user.role === "SUPERADMIN") {
@@ -93,7 +100,21 @@ export const updateMyBusiness = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const { name, whatsapp, address, isActive, slug } = req.body;
+    const { 
+      name, 
+      whatsapp, 
+      address, 
+      isActive, 
+      slug,
+      // ✨ Campos nuevos del Módulo 4
+      description,
+      logo,
+      instagram,
+      facebook,
+      website,
+      hours,
+      menuConfig,
+    } = req.body;
 
     const business = await prisma.business.findFirst({
       where: { ownerId: userId },
@@ -121,15 +142,53 @@ export const updateMyBusiness = async (req, res) => {
       nextSlug = candidate;
     }
 
+    // ✅ Preparar datos para actualizar
+    const updateData = {
+      name: typeof name === "string" && name.trim() ? name.trim() : business.name,
+      whatsapp: whatsapp !== undefined ? whatsapp : business.whatsapp,
+      address: address !== undefined ? address : business.address,
+      slug: nextSlug,
+      isActive: typeof isActive === "boolean" ? isActive : business.isActive,
+    };
+
+    // ✨ Agregar campos nuevos si están presentes
+    if (description !== undefined) {
+      updateData.description = description;
+    }
+
+    if (logo !== undefined) {
+      updateData.logo = logo;
+    }
+
+    if (instagram !== undefined) {
+      updateData.instagram = instagram;
+    }
+
+    if (facebook !== undefined) {
+      updateData.facebook = facebook;
+    }
+
+    if (website !== undefined) {
+      updateData.website = website;
+    }
+
+    if (hours !== undefined) {
+      // Validar que sea un objeto válido
+      if (typeof hours === "object" && hours !== null) {
+        updateData.hours = hours;
+      }
+    }
+
+    if (menuConfig !== undefined) {
+      // Validar que sea un objeto válido
+      if (typeof menuConfig === "object" && menuConfig !== null) {
+        updateData.menuConfig = menuConfig;
+      }
+    }
+
     const updated = await prisma.business.update({
       where: { id: business.id },
-      data: {
-        name: typeof name === "string" && name.trim() ? name.trim() : business.name,
-        whatsapp: whatsapp ?? business.whatsapp,
-        address: address ?? business.address,
-        slug: nextSlug,
-        isActive: typeof isActive === "boolean" ? isActive : business.isActive,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -137,6 +196,14 @@ export const updateMyBusiness = async (req, res) => {
         address: true,
         whatsapp: true,
         isActive: true,
+        // ✨ Incluir campos nuevos en la respuesta
+        description: true,
+        logo: true,
+        instagram: true,
+        facebook: true,
+        website: true,
+        hours: true,
+        menuConfig: true,
       },
     });
 

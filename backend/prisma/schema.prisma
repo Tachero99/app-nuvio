@@ -1,4 +1,4 @@
-// prisma/schema.prisma - CORREGIDO
+// prisma/schema.prisma - COMPLETO CON MÓDULO 4
 
 datasource db {
   provider = "postgresql"
@@ -43,8 +43,25 @@ model Business {
 
   owner User @relation("OwnerBusinesses", fields: [ownerId], references: [id])
 
+  // Info básica
   whatsapp  String?
   address   String?
+  
+  // ✨ NUEVO MÓDULO 4: Info extendida
+  description String?  @db.Text
+  logo        String?  @db.Text
+  
+  // ✨ NUEVO MÓDULO 4: Redes sociales
+  instagram   String?  @db.VarChar(255)
+  facebook    String?  @db.VarChar(255)
+  website     String?  @db.VarChar(255)
+  
+  // ✨ NUEVO MÓDULO 4: Horarios
+  hours       Json?
+  
+  // ✨ NUEVO MÓDULO 4: Personalización del menú
+  menuConfig  Json?
+  
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -54,7 +71,7 @@ model Business {
   products   Product[]
   orders     Order[]
   
-  // ✨ Relaciones de analytics
+  // Relaciones de analytics
   menuViews     MenuView[]
   productClicks ProductClick[]
 }
@@ -116,9 +133,7 @@ model Product {
   updatedAt   DateTime      @default(now()) @updatedAt
 
   orderItems OrderItem[]
-  
-  // ✨ Relación inversa para analytics
-  clicks ProductClick[]
+  clicks     ProductClick[]
 
   @@index([categoryId])
   @@index([sectionId])
@@ -153,13 +168,12 @@ model OrderItem {
   product Product? @relation(fields: [productId], references: [id])
 }
 
-// ✨ Analytics de visitas al menú
+// Analytics de visitas al menú
 model MenuView {
   id         Int      @id @default(autoincrement())
   businessId Int
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   
-  // Metadata
   userAgent  String?  @db.Text
   ipAddress  String?  @db.VarChar(45)
   referer    String?  @db.Text
@@ -171,7 +185,7 @@ model MenuView {
   @@map("menu_views")
 }
 
-// ✨ Analytics de clicks en WhatsApp por producto
+// Analytics de clicks en WhatsApp por producto
 model ProductClick {
   id         Int      @id @default(autoincrement())
   businessId Int
@@ -180,7 +194,6 @@ model ProductClick {
   productId  Int?
   product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   
-  // Metadata
   userAgent  String?  @db.Text
   ipAddress  String?  @db.VarChar(45)
   

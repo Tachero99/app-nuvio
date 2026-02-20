@@ -1,4 +1,4 @@
-// routes/menu.routes.js - ACTUALIZADO CON SECCIONES
+// routes/menu.routes.js - ACTUALIZADO CON SECCIONES Y MÓDULO 4
 import { Router } from "express";
 import { prisma } from "../prismaClient.js";
 import QRCode from "qrcode"; 
@@ -39,7 +39,7 @@ router.get("/:slug/qr.png", async (req, res) => {
 });
 
 
-// ✨ Endpoint público: menú por slug de negocio (CON SECCIONES)
+// ✨ Endpoint público: menú por slug de negocio (CON SECCIONES Y MÓDULO 4)
 router.get("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -53,6 +53,14 @@ router.get("/:slug", async (req, res) => {
         whatsapp: true,
         address: true,
         isActive: true,
+        // ✨ NUEVO MÓDULO 4: Campos adicionales
+        description: true,
+        logo: true,
+        instagram: true,
+        facebook: true,
+        website: true,
+        hours: true,
+        menuConfig: true,
       },
     });
 
@@ -70,7 +78,7 @@ router.get("/:slug", async (req, res) => {
       },
       orderBy: { sortOrder: "asc" },
       include: {
-        // ✨ NUEVO: incluir secciones
+        // ✨ incluir secciones
         sections: {
           where: { isActive: true },
           orderBy: { sortOrder: "asc" },
@@ -85,7 +93,7 @@ router.get("/:slug", async (req, res) => {
         products: {
           where: {
             status: "ACTIVE",
-            sectionId: null, // ✨ solo productos sin sección
+            sectionId: null,
           },
           orderBy: { sortOrder: "asc" },
         },
@@ -108,14 +116,12 @@ router.get("/:slug", async (req, res) => {
       name: cat.name,
       imageUrl: cat.imageUrl,
       sortOrder: cat.sortOrder,
-      // ✨ NUEVO: incluir secciones
       sections: cat.sections.map((section) => ({
         id: section.id,
         name: section.name,
         sortOrder: section.sortOrder,
         products: section.products,
       })),
-      // Productos sin sección de esta categoría
       products: cat.products,
     }));
 
@@ -126,6 +132,14 @@ router.get("/:slug", async (req, res) => {
         slug: business.slug,
         whatsapp: business.whatsapp,
         address: business.address,
+        // ✨ NUEVO MÓDULO 4: Incluir en respuesta
+        description: business.description,
+        logo: business.logo,
+        instagram: business.instagram,
+        facebook: business.facebook,
+        website: business.website,
+        hours: business.hours,
+        menuConfig: business.menuConfig,
       },
       categories: formattedCategories,
       ungroupedProducts,

@@ -27,7 +27,6 @@ function buildWaLink(waBase: string, text: string) {
   }
 }
 
-// ✨ Función para trackear clicks en productos
 function trackProductClick(businessId: number, productId?: number) {
   if (!businessId) return;
 
@@ -47,6 +46,9 @@ function ProductRow({
   businessId,
   categoryName,
   theme,
+  useSecondary,
+  secondaryColor,
+  secondaryTextColor,
 }: {
   p: MenuProduct;
   waBase: string | null;
@@ -54,6 +56,9 @@ function ProductRow({
   businessId: number;
   categoryName?: string;
   theme: Theme;
+  useSecondary?: boolean;
+  secondaryColor?: string;
+  secondaryTextColor?: string;
 }) {
   const priceLabel = p.price != null ? moneyArs(p.price) : null;
   const imgSrc = useMemo(() => resolveMediaUrl(p.imageUrl), [p.imageUrl]);
@@ -70,7 +75,6 @@ function ProductRow({
 
   const waHref = waBase ? buildWaLink(waBase, waText) : null;
 
-  // ✨ Handler para click en WhatsApp con tracking
   const handleWhatsAppClick = () => {
     if (!waHref) return;
     trackProductClick(businessId, p.id);
@@ -130,12 +134,22 @@ function ProductRow({
 
           {waHref ? (
             <div className="mt-3">
-              <button
-                onClick={handleWhatsAppClick}
-                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-medium text-white"
-              >
-                Pedir este producto
-              </button>
+                  {useSecondary ? (
+                    <button
+                      onClick={handleWhatsAppClick}
+                      className="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-medium transition-colors duration-200 hover:opacity-95"
+                      style={{ backgroundColor: secondaryColor, color: secondaryTextColor, borderColor: secondaryColor }}
+                    >
+                      Pedir este producto
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleWhatsAppClick}
+                      className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-medium text-white transition-colors duration-200 hover:opacity-95"
+                    >
+                      Pedir este producto
+                    </button>
+                  )}
             </div>
           ) : null}
         </div>
@@ -157,7 +171,6 @@ export default function PublicMenuClient({
   categories: MenuCategory[];
   ungroupedProducts: MenuProduct[];
 }) {
-  // ✨ Trackear vista del menú (solo una vez)
   const tracked = useRef(false);
 
   useEffect(() => {
@@ -176,9 +189,20 @@ export default function PublicMenuClient({
     return initial;
   });
 
-  // ✨ Estados para búsqueda y tema
   const [searchQuery, setSearchQuery] = useState("");
-  const [theme, setTheme] = useState<Theme>("dark");
+  
+  // ✨ NUEVO: Aplicar tema predeterminado del negocio
+  const defaultTheme = useMemo(() => {
+    const config = (business as any).menuConfig;
+    if (config && typeof config === "object" && config.theme) {
+      return config.theme as Theme;
+    }
+    return "dark";
+  }, [business]);
+
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
+  const [customBg, setCustomBg] = useState(false);
+  const [customAll, setCustomAll] = useState(false);
 
   const allOpen = useMemo(() => {
     const catAll = categories.length ? categories.every((c) => open[c.id] === true) : true;
@@ -194,14 +218,12 @@ export default function PublicMenuClient({
     return buildWaLink(waBase, text);
   }, [waBase, business.name]);
 
-  // ✨ Handler para click en WhatsApp del botón superior
   const handleTopWhatsAppClick = () => {
     if (!waTop) return;
     trackProductClick(business.id);
     window.open(waTop, "_blank", "noopener,noreferrer");
   };
 
-  // ✨ Filtrar productos por búsqueda
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return categories;
 
@@ -244,7 +266,33 @@ export default function PublicMenuClient({
     setOpen(m);
   }
 
-  // ✨ Estilos por tema
+  // ✨ Extraer información adicional del negocio
+  const businessInfo = useMemo(() => {
+    const info = business as any;
+    return {
+      description: info.description || null,
+      logo: info.logo || null,
+      instagram: info.instagram || null,
+      facebook: info.facebook || null,
+      website: info.website || null,
+      hours: info.hours || null,
+      primaryColor: info.menuConfig?.primaryColor || info.primaryColor || null,
+      cardColor: info.menuConfig?.cardColor || null,
+      secondaryColor: info.menuConfig?.secondaryColor || null,
+    };
+  }, [business]);
+
+  function getContrastColor(hex?: string) {
+    if (!hex) return "#ffffff";
+    const h = hex.replace("#", "");
+    const bigint = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 128 ? "#000000" : "#ffffff";
+  }
+
   const themeClasses = {
     dark: {
       bg: "bg-slate-950",
@@ -278,28 +326,149 @@ export default function PublicMenuClient({
     },
   };
 
+  const primaryColor = businessInfo.primaryColor || "#16a34a";
+  const primaryTextColor = getContrastColor(primaryColor);
+  const cardColor = businessInfo.cardColor || "#0f172a";
+  const cardTextColor = getContrastColor(cardColor);
+  const secondaryColor = businessInfo.secondaryColor || "#10b981";
+  const secondaryTextColor = getContrastColor(secondaryColor);
+
+  const [customCard, setCustomCard] = useState(false);
+  const [customSecondary, setCustomSecondary] = useState(false);
+
   const t = themeClasses[theme];
 
+  const menuConfigVersion = useMemo(() => {
+    try {
+      return JSON.stringify((business as any).menuConfig || {});
+    } catch {
+      return "";
+    }
+  }, [business]);
+
+  // Sync single-toggle `customAll` to individual toggles
+  useEffect(() => {
+    setCustomBg(customAll);
+    setCustomCard(customAll);
+    setCustomSecondary(customAll);
+  }, [customAll]);
+
+  // Load persisted toggles if menuConfig matches
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = `nuvio_menu_toggles_${business.id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.menuConfigVersion === menuConfigVersion) {
+        if (typeof parsed.customAll === "boolean") setCustomAll(parsed.customAll);
+        if (parsed.theme) setTheme(parsed.theme as Theme);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }, [business.id, menuConfigVersion]);
+
+  // Persist toggles when they change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = `nuvio_menu_toggles_${business.id}`;
+    try {
+      localStorage.setItem(
+        key,
+        JSON.stringify({ menuConfigVersion, customAll, theme, updatedAt: Date.now() })
+      );
+    } catch (e) {
+      /* ignore */
+    }
+  }, [business.id, menuConfigVersion, customAll, theme]);
+
   return (
-    <div className={`min-h-screen ${t.bg} ${t.text}`}>
+    <div
+      className={`min-h-screen ${t.bg} ${t.text}`}
+      style={
+        customBg
+          ? { backgroundColor: primaryColor, color: primaryTextColor }
+          : undefined
+      }
+    >
       <div className="mx-auto max-w-3xl px-4 py-10">
         <header className="space-y-3">
+          {/* ✨ Logo del negocio */}
+          {businessInfo.logo && (
+            <div className="flex justify-center mb-4">
+              <img
+                src={businessInfo.logo}
+                alt={business.name}
+                className="h-20 w-auto object-contain"
+              />
+            </div>
+          )}
+
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">{business.name}</h1>
+            
+            {/* ✨ Descripción del negocio */}
+            {businessInfo.description && (
+              <p className="text-sm opacity-70 mt-2">{businessInfo.description}</p>
+            )}
+            
             {business.address ? (
               <p className="text-sm opacity-70">{business.address}</p>
             ) : (
               <p className="text-sm opacity-50">Menú digital</p>
             )}
+
+            {/* ✨ Redes sociales */}
+            {(businessInfo.instagram || businessInfo.facebook || businessInfo.website) && (
+              <div className="flex flex-wrap gap-3 mt-3">
+                {businessInfo.instagram && (
+                  <a
+                    href={businessInfo.instagram.startsWith('http') ? businessInfo.instagram : `https://instagram.com/${businessInfo.instagram.replace('@', '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-base px-2 py-1 rounded-md opacity-90 hover:opacity-100 flex items-center gap-2"
+                  >
+                    <span className="text-lg">📷</span>
+                    <span>Instagram</span>
+                  </a>
+                )}
+                {businessInfo.facebook && (
+                  <a
+                    href={businessInfo.facebook.startsWith('http') ? businessInfo.facebook : `https://facebook.com/${businessInfo.facebook}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-base px-2 py-1 rounded-md opacity-90 hover:opacity-100 flex items-center gap-2"
+                  >
+                    <span className="text-lg">👍</span>
+                    <span>Facebook</span>
+                  </a>
+                )}
+                {businessInfo.website && (
+                  <a
+                    href={businessInfo.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-base px-2 py-1 rounded-md opacity-90 hover:opacity-100 flex items-center gap-2"
+                  >
+                    <span className="text-lg">🌐</span>
+                    <span>Sitio web</span>
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3">
-            {/* Controles superiores */}
             <div className="flex flex-wrap items-center gap-2 pt-2">
               {waTop ? (
                 <button
-                  onClick={handleTopWhatsAppClick}
-                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white"
+                  onClick={() => {
+                    handleTopWhatsAppClick();
+                  }}
+                  className={customSecondary ? "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-200" : "inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors duration-200"}
+                  style={customSecondary ? { backgroundColor: secondaryColor, color: secondaryTextColor, borderColor: secondaryColor } : undefined}
                 >
                   Pedir por WhatsApp
                 </button>
@@ -307,44 +476,61 @@ export default function PublicMenuClient({
 
               <button
                 onClick={() => setAll(!allOpen)}
-                className={`inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm ${t.button}`}
+                className={`inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm ${t.button} transition-colors duration-200`}
               >
                 {allOpen ? "Contraer todo" : "Expandir todo"}
               </button>
 
-              {/* ✨ Selector de tema */}
               <div className="flex gap-1">
                 <button
-                  onClick={() => setTheme("dark")}
-                  className={`p-2 rounded-lg border ${
+                  onClick={() => {
+                    setTheme("dark");
+                    setCustomBg(false);
+                    setCustomCard(false);
+                    setCustomSecondary(false);
+                  }}
+                  className={`px-3 py-2 rounded-lg border ${
                     theme === "dark" ? "bg-slate-700 border-slate-600" : t.button
-                  }`}
+                  } transition-colors duration-200`}
                   title="Modo oscuro"
                 >
-                  🌙
+                  <span className="inline-flex items-center gap-2">
+                    <span>🌙</span>
+                    <span className="text-sm">Modo oscuro</span>
+                  </span>
                 </button>
                 <button
-                  onClick={() => setTheme("light")}
-                  className={`p-2 rounded-lg border ${
+                  onClick={() => {
+                    setTheme("light");
+                    setCustomBg(false);
+                    setCustomCard(false);
+                    setCustomSecondary(false);
+                  }}
+                  className={`px-3 py-2 rounded-lg border ${
                     theme === "light" ? "bg-gray-200 border-gray-400" : t.button
-                  }`}
+                  } transition-colors duration-200`}
                   title="Modo claro"
                 >
-                  ☀️
+                  <span className="inline-flex items-center gap-2">
+                    <span>☀️</span>
+                    <span className="text-sm">Modo claro</span>
+                  </span>
                 </button>
                 <button
-                  onClick={() => setTheme("warm")}
-                  className={`p-2 rounded-lg border ${
-                    theme === "warm" ? "bg-amber-200 border-amber-400" : t.button
-                  }`}
-                  title="Modo cálido"
+                  onClick={() => setCustomAll((s) => !s)}
+                  className={`px-3 py-2 rounded-lg border ${
+                    customAll ? "ring-2 ring-offset-1" : t.button
+                  } transition-colors duration-200`}
+                  title="Personalizado"
                 >
-                  🍂
+                  <span className="inline-flex items-center gap-2">
+                    <span>🎨</span>
+                    <span className="text-sm">Personalizado</span>
+                  </span>
                 </button>
               </div>
             </div>
 
-            {/* ✨ Barra de búsqueda */}
             <div>
               <input
                 type="text"
@@ -355,7 +541,6 @@ export default function PublicMenuClient({
               />
             </div>
 
-            {/* Filtros de categoría */}
             {(filteredCategories.length > 0 || filteredUngrouped.length > 0) && (
               <div className="flex flex-wrap gap-2">
                 {filteredCategories.map((c) => (
@@ -368,7 +553,7 @@ export default function PublicMenuClient({
                         block: "start",
                       });
                     }}
-                    className={`rounded-full border px-3 py-1 text-xs ${t.button}`}
+                    className={`border w-10 h-10 text-sm flex items-center justify-center rounded-md ${t.button} transition-colors duration-200`}
                     title={c.name}
                   >
                     {c.name}
@@ -394,7 +579,6 @@ export default function PublicMenuClient({
           </div>
         </header>
 
-        {/* Mensaje si no hay resultados */}
         {searchQuery &&
           filteredCategories.length === 0 &&
           filteredUngrouped.length === 0 && (
@@ -406,9 +590,12 @@ export default function PublicMenuClient({
           )}
 
         <div className="mt-6 space-y-6">
-          {/* Otros */}
           {filteredUngrouped.length > 0 && (
-            <section id="cat-ungrouped" className={`rounded-2xl border overflow-hidden ${t.card}`}>
+            <section id="cat-ungrouped" className={`rounded-2xl border overflow-hidden ${t.card}`} style={
+              customCard
+                ? { backgroundColor: cardColor, color: cardTextColor, borderColor: cardColor, transition: "background-color 200ms, color 200ms, border-color 200ms" }
+                : undefined
+            }>
               <button
                 onClick={() => toggleCat(-1)}
                 className={`w-full flex items-center justify-between border-b px-4 py-3 ${t.button}`}
@@ -419,7 +606,7 @@ export default function PublicMenuClient({
 
               {open[-1] !== false && (
                 <ul className={`divide-y ${t.divider}`}>
-                  {filteredUngrouped.map((p) => (
+                          {filteredUngrouped.map((p) => (
                     <ProductRow
                       key={p.id}
                       p={p}
@@ -427,6 +614,9 @@ export default function PublicMenuClient({
                       businessName={business.name}
                       businessId={business.id}
                       theme={theme}
+                      useSecondary={customSecondary}
+                      secondaryColor={secondaryColor}
+                      secondaryTextColor={secondaryTextColor}
                     />
                   ))}
                 </ul>
@@ -434,7 +624,6 @@ export default function PublicMenuClient({
             </section>
           )}
 
-          {/* Categorías */}
           {filteredCategories.map((cat) => {
             const isOpen = open[cat.id] === true;
             const catImgSrc = resolveMediaUrl(cat.imageUrl);
@@ -444,8 +633,12 @@ export default function PublicMenuClient({
             const directProductCount = cat.products?.length || 0;
             const totalProducts = sectionsProductCount + directProductCount;
 
-            return (
-              <section key={cat.id} id={`cat-${cat.id}`} className={`rounded-2xl border overflow-hidden ${t.card}`}>
+              return (
+              <section key={cat.id} id={`cat-${cat.id}`} className={`rounded-2xl border overflow-hidden ${t.card}`} style={
+                customCard
+                  ? { backgroundColor: cardColor, color: cardTextColor, borderColor: cardColor, transition: "background-color 200ms, color 200ms, border-color 200ms" }
+                  : undefined
+              }>
                 <button
                   onClick={() => toggleCat(cat.id)}
                   className={`w-full flex items-center justify-between border-b px-4 py-3 ${t.button}`}
@@ -484,7 +677,6 @@ export default function PublicMenuClient({
 
                 {isOpen && (
                   <div>
-                    {/* Secciones */}
                     {cat.sections && cat.sections.length > 0 && (
                       <div>
                         {cat.sections.map((section) => (
@@ -506,6 +698,9 @@ export default function PublicMenuClient({
                                     businessId={business.id}
                                     categoryName={cat.name}
                                     theme={theme}
+                                    useSecondary={customSecondary}
+                                    secondaryColor={secondaryColor}
+                                    secondaryTextColor={secondaryTextColor}
                                   />
                                 ))}
                               </ul>
@@ -515,7 +710,6 @@ export default function PublicMenuClient({
                       </div>
                     )}
 
-                    {/* Productos sin sección */}
                     {cat.products && cat.products.length > 0 && (
                       <>
                         {cat.sections && cat.sections.length > 0 && (
@@ -533,6 +727,9 @@ export default function PublicMenuClient({
                               businessId={business.id}
                               categoryName={cat.name}
                               theme={theme}
+                              useSecondary={customSecondary}
+                              secondaryColor={secondaryColor}
+                              secondaryTextColor={secondaryTextColor}
                             />
                           ))}
                         </ul>
@@ -548,13 +745,59 @@ export default function PublicMenuClient({
         {waTop && (
           <button
             onClick={handleTopWhatsAppClick}
-            className="fixed bottom-5 right-5 rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-medium text-white shadow-lg"
+            className={customSecondary ? "fixed bottom-5 right-5 rounded-full px-4 py-3 text-sm font-medium shadow-lg" : "fixed bottom-5 right-5 rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-medium text-white shadow-lg"}
+            style={customSecondary ? { backgroundColor: secondaryColor, color: secondaryTextColor, borderColor: secondaryColor } : undefined}
           >
             WhatsApp
           </button>
         )}
 
-        <footer className={`mt-10 border-t pt-6 text-xs opacity-50 ${t.footer}`}>
+        <footer className={`mt-10 border-t pt-6 text-sm opacity-80 ${t.footer}`}>
+          {/* ✨ Horarios de atención */}
+          {businessInfo.hours && (
+            <div className="mb-6 text-base">
+              <div className="font-medium mb-3 text-lg">Horarios de atención:</div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-base opacity-85">
+                {Object.entries(businessInfo.hours).map(([day, hours]) => {
+                  const label =
+                    day === "monday"
+                      ? "Lunes"
+                      : day === "tuesday"
+                      ? "Martes"
+                      : day === "wednesday"
+                      ? "Miércoles"
+                      : day === "thursday"
+                      ? "Jueves"
+                      : day === "friday"
+                      ? "Viernes"
+                      : day === "saturday"
+                      ? "Sábado"
+                      : "Domingo";
+
+                  let hoursLabel: string;
+                  if (typeof hours === "string") {
+                    hoursLabel = hours || "Cerrado";
+                  } else if (Array.isArray(hours)) {
+                    hoursLabel = hours.length ? hours.join(" - ") : "Cerrado";
+                  } else if (hours && typeof hours === "object") {
+                    const open = (hours as any).open || "";
+                    const close = (hours as any).close || "";
+                    hoursLabel = open || close ? `${open}${open && close ? " - " : ""}${close}` : "Cerrado";
+                  } else {
+                    hoursLabel = "Cerrado";
+                  }
+
+                  return (
+                    <div key={day}>
+                      <div className="capitalize font-medium">{label}</div>
+                      <div className="opacity-80">{hoursLabel}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <p>
             Hecho con <span className="opacity-100">Nuvio</span> · <span className="font-mono">/m/{slug}</span>
           </p>

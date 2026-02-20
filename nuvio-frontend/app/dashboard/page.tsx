@@ -370,7 +370,7 @@ export default function DashboardPage() {
                   disabled={saving}
                   className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-60"
                 >
-                  {editMode ? "Cerrar edición" : "Editar negocio"}
+                  {editMode ? "Cerrar edición" : "Editar negocio Rápido"}
                 </button>
 
                 <button
